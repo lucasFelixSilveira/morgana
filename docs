@@ -1,0 +1,27 @@
+[16:u8]
+[*:u8]
+
+tipo*
+
+u8 i8
+
+type id(int8, uint9) {
+    let mut id : type;
+    let id : type;
+
+    id := value
+
+    id += value
+    id -= value
+    id *= value
+    id /= value
+    id %= value
+
+    pendence id(int8, uint9) {
+        id01
+        id02
+        id03
+    }
+
+    return 0;
+}
