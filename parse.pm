@@ -42,29 +42,66 @@ sub is_kind_type {
     return any { $_ eq $type } ('Integer', 'Array<undef>', 'Array<Integer>');
 }
 
+sub isKeyword {
+    my ($type) = @_;
+    return any { $_ eq $type } ('ret');
+}
+
 sub parse {
     my (@tokens) = @_;
     my @results;
     my @kindfull;
 
-    foreach my $token (@tokens) {
-        if( isType($token) ) {
+    my $i = 0;
+    for ($i = 0; $i < @tokens; $i++) {
+        my $token = $tokens[$i];
+        my $first = substr($token, 0, 1);
+
+        if ($first eq '(') {
+            my $ctx = $token;
+            while (substr($token, -1) ne ')') {
+                $i++;
+                die "Erro de sintaxe: parêntese de fechamento ')' esperado" if $i >= @tokens;
+                $token = $tokens[$i];
+                $ctx .= $token;
+            }
+            push @kindfull, { kind => 'Desconstructor', value => $ctx };
+        }
+        elsif (isKeyword($token)) {
+            push @kindfull, { kind => $token };
+        } elsif (isType($token)) {
             push @kindfull, checkType($token);
-        } elsif( $token =~ m{[a-zA-Z][a-zA-Z0-9_]+}x ) {
+        } elsif ($token =~ m{[a-zA-Z][a-zA-Z0-9_]+}x) {
             push @kindfull, { kind => 'Identifier', value => $token };
-        } elsif( $token eq '{' ) {
+        } elsif ($token =~ m{[0-9]+}x) {
+            push @kindfull, { kind => 'LiteralInteger', value => $token };
+        } elsif ($token eq '{') {
             push @kindfull, { kind => 'OPEN' };
-        } elsif( $token eq '}' ) {
+        } elsif ($token eq '}') {
             push @kindfull, { kind => 'CLOSE' };
+        } elsif ($token eq '@_') {
+            push @kindfull, { kind => 'THAT' };
         } else {
             push @kindfull, { kind => 'Unknown', value => $token };
         }
     }
 
+
     for( my $i = 0; $i < @kindfull; $i++ ) {
         my $current = $kindfull[$i];
 
-        if( is_kind_type($current->{kind}) and $kindfull[$i + 1]->{kind} eq 'Identifier' ) {
+        if( $current->{kind} eq 'Desconstructor' and $kindfull[$i + 1]->{kind} eq 'THAT' ) {
+            my $ctx = substr $kindfull[$i]->{value}, 1, -1 ;
+            my @identifiers = split /[,]\s*/, $ctx;
+            @identifiers = grep /\S/, @identifiers;
+
+            push @results, {
+                kind => 'Rename',
+                identifiers => \@identifiers
+            };
+        }
+
+        elsif( is_kind_type($current->{kind}) and $kindfull[$i + 1]->{kind} eq 'Identifier' ) {
             my $func_name = $kindfull[$i + 1]->{value};
             my @arguments;
 
@@ -82,12 +119,13 @@ sub parse {
             };
         }
 
-        if( $current->{kind} eq 'CLOSE' ) {
+        elsif( $current->{kind} eq 'CLOSE' ) {
             push @results, {
                 kind => 'CLOSE'
             };
+        } else {
+            push @results, $current
         }
-
     }
 
     return @results;
