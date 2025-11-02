@@ -9,22 +9,22 @@
 
 struct Builder;
 
-struct Symbol {
+struct MorganaSymbol {
 public:
     using value = std::variant<std::monostate, std::shared_ptr<morgana::type>>;
 
     std::string name;
     value type;
 
-    Symbol(std::string name, value type) : name(name), type(type) {}
+    MorganaSymbol(std::string name, value type) : name(name), type(type) {}
 };
 
-struct Symbols {
+struct MorganaSymbols {
 private:
-    std::vector<Symbol> symbols;
+    std::vector<MorganaSymbol> symbols;
 
 public:
-    Symbols() = default;
+    MorganaSymbols() = default;
     void add(Builder& builder, const std::string& name, std::shared_ptr<morgana::type> type);
 };
 
@@ -41,13 +41,13 @@ private:
     bool debug = false;
 
 public:
-    Symbols symbols;
+    MorganaSymbols symbols;
 
     std::string string() const;
     bool isDebugMode() const;
     Builder& operator<<(const std::string& str);
 
     Builder(bool debug = false) : debug(debug) {
-        symbols = Symbols();
+        symbols = MorganaSymbols();
     }
 };

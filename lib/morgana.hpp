@@ -107,6 +107,13 @@ namespace morgana {
         function(std::string name, std::shared_ptr<type> return_type, args arguments, std::string body) : name(name), return_type(return_type), arguments(arguments), body(body) {}
 
         /*
+         * Make a Shared pointer type without a large code
+         */
+        std::shared_ptr<function> shared() {
+            return std::make_shared<function>(*this);
+        }
+
+        /*
          * Convert the type class to the string representation
          * of the function and their body in Morgana IR language.
          */
@@ -129,6 +136,25 @@ namespace morgana {
      */
     enum mics {
         that
+    };
+
+
+    /*
+     * Util class for symbol table of your langugage
+     */
+    struct variable {
+        std::string name;
+        std::shared_ptr<morgana::type> type;
+        bool mut;
+
+        variable(std::string name, std::shared_ptr<morgana::type> type, bool mut) : name(name), type(type), mut(mut) {}
+
+        /*
+         * Make a Shared pointer type without a large code
+         */
+        std::shared_ptr<variable> shared() {
+            return std::make_shared<variable>(*this);
+        }
     };
 
     /*

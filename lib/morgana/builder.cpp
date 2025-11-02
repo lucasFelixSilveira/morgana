@@ -1,8 +1,8 @@
 #include "builder.hpp"
 #include "debug.hpp"
 
-void Symbols::add(Builder& builder, const std::string& name, std::shared_ptr<morgana::type> type) {
-    symbols.push_back(Symbol(name, type));
+void MorganaSymbols::add(Builder& builder, const std::string& name, std::shared_ptr<morgana::type> type) {
+    symbols.push_back(MorganaSymbol(name, type));
     Debug::add(builder, type);
 }
 
