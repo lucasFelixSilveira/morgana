@@ -6,7 +6,7 @@ void Symbols::add(Builder& builder, const std::string& name, std::shared_ptr<mor
     Debug::add(builder, type);
 }
 
-inline std::string Builder::string() const { return ss.str(); }
+std::string Builder::string() const { return ss.str(); }
 bool Builder::isDebugMode() const { return debug; }
 
 Builder& Builder::operator<<(const std::string& str) {

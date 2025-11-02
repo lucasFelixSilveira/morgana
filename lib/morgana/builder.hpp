@@ -43,7 +43,7 @@ private:
 public:
     Symbols symbols;
 
-    inline std::string string() const;
+    std::string string() const;
     bool isDebugMode() const;
     Builder& operator<<(const std::string& str);
 

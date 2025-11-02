@@ -3,7 +3,9 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace morgana {
     using dynamic = std::monostate;
@@ -91,4 +93,73 @@ namespace morgana {
             return ss.str();
         }
     };
-}
+
+    struct function {
+        std::string name;
+        std::shared_ptr<type> return_type;
+
+        std::vector<std::shared_ptr<type>> arguments;
+
+        std::string body;
+
+        using args = std::vector<std::shared_ptr<type>>;
+
+        function(std::string name, std::shared_ptr<type> return_type, args arguments, std::string body) : name(name), return_type(return_type), arguments(arguments), body(body) {}
+
+        /*
+         * Convert the type class to the string representation
+         * of the function and their body in Morgana IR language.
+         */
+        std::string string() {
+            std::stringstream ss;
+            ss << "\n" << return_type->string() << " " << name << " ";
+
+            for( auto argument : arguments ) {
+                ss << argument->string() << " ";
+            }
+
+            ss << "{\n" << body << "}\n";
+            return ss.str();
+        }
+    };
+
+    /*
+     * That is the options of miscellaneous in
+     * Morgana IR language.
+     */
+    enum mics {
+        that
+    };
+
+    /*
+     *
+     */
+    struct desconstruct {
+        using data = std::variant<std::string>;
+        using values = std::vector<morgana::desconstruct::data>;
+        values contents;
+        mics option;
+
+        desconstruct(mics option, std::vector<data> contents) : option(option), contents(contents) {};
+
+        /*
+         * Convert the deconstructor class to the string representation
+         * of some deconstructor in Morgana IR language.
+         */
+        std::string string() {
+            std::stringstream ss;
+
+            switch(option) {
+                case mics::that: {
+                    ss << "(";
+                    for( auto value : contents ) {
+                        ss << std::get<std::string>(value) << ", ";
+                    }
+                    ss << ") @_\n";
+                } break;
+            }
+
+            return ss.str();
+        }
+    };
+};
