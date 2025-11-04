@@ -1,8 +1,0 @@
-#!/bin/sh
-cd $0 > /dev/null 2>&1
-oldpwd=$(pwd)
-script_path="$0"
-script_dir=$(cd "$(dirname "$script_path")" 2>/dev/null && pwd)
-trap 'cd "$oldpwd"' EXIT
-cd "$script_dir" || exit 1
-perl main.pl $1

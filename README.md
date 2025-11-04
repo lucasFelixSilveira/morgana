@@ -3,8 +3,6 @@
 ### What is Moragana?
 Moragana is a IR language projected to change LLVM on Carla project. But, you can use on your on compiler.
 
-Morgana compiler was developed using Perl
-
 ## How better Morgana is than LLVM
 - LLVM Code
 ```llvm

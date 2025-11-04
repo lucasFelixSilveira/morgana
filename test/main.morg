@@ -1,4 +1,7 @@
-i32 main i8 [*:i8]* {
-    (argc, argv) @_
-    ret 0
+alias a0 = i8*
+
+alias a1 = [*:a0]
+
+i32 main i8 a1* {
+(argc, argv, ) @_
 }

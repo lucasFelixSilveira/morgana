@@ -3,15 +3,18 @@
 #include <memory>
 #include <sstream>
 #include <string>
-#include <utility>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
+#include "morgana/storage.hpp"
+
 namespace morgana {
+
     using dynamic = std::monostate;
     using non_size = std::variant<dynamic, int>;
 
-    enum radical { Integer = 0 };
+    enum radical { Integer = 0, Alias = 1 };
 
     /*
      * This class represents a type in the IR.
@@ -27,10 +30,13 @@ namespace morgana {
     struct type {
     private:
         enum radical radical;
+        int addr;
         non_size length;
         int bits;
         bool pointer;
         bool vector;
+
+        static std::unordered_map<std::string, int> addrs;
     public:
         type(enum radical radical, int bits): radical(radical), bits(bits), pointer(false), vector(false) {}
 
@@ -41,6 +47,20 @@ namespace morgana {
         static type integer(int bits) {
             type t(radical::Integer, bits);
             return t;
+        }
+
+        /*
+         *
+         */
+        static type clone(Storage& storage, type& t) {
+            type clone = t;
+            clone.radical = radical::Alias;
+            clone.addr = storage.addr++;
+            clone.pointer = false;
+            clone.vector = false;
+
+            storage.aliases.push_back({ clone.addr, t.string() });
+            return clone;
         }
 
         /*
@@ -86,6 +106,8 @@ namespace morgana {
 
             if( radical == Integer) {
                 ss << "i" << bits;
+            } else if( radical == Alias ) {
+                ss << "a" << addr;
             }
 
             if( vector ) ss << "]";
