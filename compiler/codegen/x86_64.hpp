@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../codegen.hpp"
-#include <array>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <array>
 
 struct X86_64 : public CodeGen {
 public:
@@ -19,27 +19,41 @@ public:
         registerMap[STACK] = "%rsp";
         registerMap[STACK_PTR] = "%rbp";
 
+        #ifdef UNIX_LIKE
+        #define MAX_REGISTER_ARGUMENTS 6
         registerMap[ARGUMENTS] = RegisterBitMatrix {
-            // [64-bit,    32-bit,    16-bit,    8-bit]
-            {"%rdi",    "%edi",    "%di",     "%dil"},
-            {"%rsi",    "%esi",    "%si",     "%sil"},
-            {"%rdx",    "%edx",    "%dx",     "%dl"},
-            {"%rcx",    "%ecx",    "%cx",     "%cl"},
-            {"%r8",     "%r8d",    "%r8w",    "%r8b"},
-            {"%r9",     "%r9d",    "%r9w",    "%r9b"}
+            {"%rdi", "%edi", "%di", "%dil"},
+            {"%rsi", "%esi", "%si", "%sil"},
+            {"%rdx", "%edx", "%dx", "%dl"},
+            {"%rcx", "%ecx", "%cx", "%cl"},
+            {"%r8", "%r8d", "%r8w", "%r8b"},
+            {"%r9", "%r9d", "%r9w", "%r9b"}
         };
+        #else
+        #define MAX_REGISTER_ARGUMENTS 4
+        registerMap[ARGUMENTS] = RegisterBitMatrix {
+            {"%rcx", "%ecx", "%cx", "%cl"},
+            {"%rdx", "%edx", "%dx", "%dl"},
+            {"%r8", "%r8d", "%r8w", "%r8b"},
+            {"%r9", "%r9d", "%r9w", "%r9b"},
+            {"", "", "", ""},  // stack
+            {"", "", "", ""}   // stack
+        };
+        #endif
     }
 
     std::string entry() override {
         std::stringstream ss;
 
-        ss << ".text\n"
-           << ".globl _start\n"
-           << "_start:\n"
-           << "\tcall main\n"
-           << "\tmovq %rax, %rdi\n"
-           << "\tmovq $60, %rax\n"
-           << "\tsyscall\n";
+        #ifdef UNIX_LIKE
+        ss  << ".text\n"
+            << ".globl _start\n"
+            << "_start:\n"
+            << "\tcall main\n"
+            << "\tmovq %rax, %rdi\n"
+            << "\tmovq $60, %rax\n"
+            << "\tsyscall\n";
+        #endif
 
         return ss.str();
     }
@@ -76,9 +90,16 @@ public:
     std::string prologue(function func) override {
         std::stringstream ss;
 
-        ss << "\n.text\n"
-           << ".globl " << func.name << "\n"
-           << func.name << ":\n"
+        ss << "\n.text\n";
+
+        #ifdef UNIX_LIKE
+        ss << ".globl " << func.name << "\n"
+           << ".type " << func.name << ", @function\n";
+        #else
+        ss << ".globl " << func.name << "\n"
+           << ".def " << func.name << "; .scl 2; .type " << (func.ret.bytes() * 8) << "; .endef\n"
+        #endif
+        ss << func.name << ":\n"
            << ".LFP" << (funcid++) <<":\n"
            << "\tpushq %rbp\n"
            << "\tmovq %rsp, %rbp\n";
@@ -93,7 +114,7 @@ public:
 
         sub = stackPos;
 
-        if( func.argst.size() <=6 ) {
+        if( func.argst.size() <=MAX_REGISTER_ARGUMENTS ) {
             int i = 0;
             for(auto type : func.argst) {
                 ss << store(type, std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]).at(i++), sub);

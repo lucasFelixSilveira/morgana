@@ -8,6 +8,7 @@ _start:
 
 .text
 .globl main
+.type main, @function
 main:
 .LFP0:
 	pushq %rbp

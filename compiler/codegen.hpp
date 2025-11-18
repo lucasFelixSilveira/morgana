@@ -12,6 +12,10 @@
 #include "params.hpp"
 #include "parser.hpp"
 
+#if defined(__linux__) || defined(__APPLE__)
+#define UNIX_LIKE
+#endif
+
 struct CodeGen {
 public:
     enum Type : int { i64 = 0, i32, i16, i8, f32, f64 };
