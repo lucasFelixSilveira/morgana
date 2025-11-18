@@ -62,17 +62,17 @@ main(int argc, char **argv)
     if( stat("target", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create target directory");
 
     /* Write CPP to target/output.cpp */
-    std::ofstream outFile("target/output.cpp");
+    std::ofstream outFile("target/output.s");
     if(! outFile.is_open() ) {
-        CompilerOutputs::Fatal("Failed to open output file target/output.cpp");
+        CompilerOutputs::Fatal("Failed to open output file target/output.s");
     }
     outFile << generated;
     outFile.close();
     if( outFile.fail() ) {
-        CompilerOutputs::Fatal("Failed to write Morgana IR to target/output.cpp");
+        CompilerOutputs::Fatal("Failed to write Morgana IR to target/output.s");
     }
 
-    std::filesystem::path absPath = std::filesystem::absolute("target/output.cpp");
+    std::filesystem::path absPath = std::filesystem::absolute("target/output.s");
 
     /* calculate time of the **INTERNAL** compilation process */
     auto mid = std::chrono::high_resolution_clock::now();
@@ -89,9 +89,9 @@ main(int argc, char **argv)
     std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET << "Morgana Object generated "
               << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " (not compiled yet)";
 
-    /* Compile Morgana CPP to object file using g++ silently */
-    std::string gpp = "g++ " + absPath.string() + " > /dev/null 2>&1";
-    if( std::system(gpp.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using g++");
+    /* Compile Morgana Assembly to object file using as silently */
+    std::string gpp = "as " + absPath.string() + " > /dev/null 2>&1";
+    if( std::system(gpp.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

@@ -1,92 +1,132 @@
 #pragma once
 
 #include <linux/limits.h>
+#include <map>
 #include <sstream>
+#include <stack>
 #include <string>
+#include <tuple>
+#include <variant>
+#include <vector>
 
-#include "compiler_outputs.hpp"
 #include "params.hpp"
 #include "parser.hpp"
-#include "sys.hpp"
 
-std::map<std::string, std::string> morgana_alias;
-SystemInfo sys;
+struct CodeGen {
+public:
+    enum Type : int { i64 = 0, i32, i16, i8, f32, f64 };
 
-std::string codegen(CompilerParams& params, ParseResults ast) {
-    std::stringstream ss;
+    enum SymbolType { VARIABLE, FUNCTION };
+    using SymbolTypeId = std::tuple<SymbolType, Type, int>;
+    using SymbolId = std::tuple<SymbolType, int>;
+    using SymbolBody = std::variant<SymbolId, SymbolTypeId>;
+    using Symbol = std::tuple<std::string, SymbolBody>;
+    using SymbolTable = std::stack<std::vector<Symbol>>;
 
-    bool optimized = params.optimized;
-    if( optimized ) ss << "#define limited_hardware\n";
+    enum Register { RETURN, STACK, STACK_PTR, ARGUMENTS };
+    using BitRegister = std::array<std::string, 4>;
+    using RegisterBitMatrix = std::vector<BitRegister>;
 
-    ss << "#include <stdint.h>\n";
-    ss << "#if not(defined(limited_hardware))\n";
-    ss << "#include <array>\n";
-    ss << "#include <vector>\n";
-    ss << "#endif\n\n";
+    std::map<Register, std::variant<std::string, RegisterBitMatrix>> registerMap;
+    SymbolTable symbolTable;
 
-    ss << "struct Morgana {\n";
-    ss << "#   if defined(limited_hardware)\n";
-    ss << "    Morgana() = default;\n";
-    ss << "#   else\n";
-    ss << "    char **argv;\n";
-    ss << "    Morgana(char **argv) : argv(argv) {}\n";
-    ss << "#   endif\n";
+    int scope = 0;
+    int stackPos;
+    int funcid;
 
-    for( auto& node : ast ) {
-        if( first(node) == ParseResultKind::Alias ) {
-            alias data = std::get<alias>(second(node));
+    virtual ~CodeGen() = default;
+    virtual std::string entry() = 0;
+    virtual std::string mov(int bytes = 0) = 0;
+    virtual std::string store(type t, BitRegister, int& sub) = 0;
+    virtual std::string prologue(function func) = 0;
+    virtual std::string epilogue() = 0;
 
-            ss << "    using " << data.name << " = " << data.data.string(optimized) << ";\n";
-        }
+    void addSymbolEntry(Symbol symbol) {
+        symbolTable.top().push_back(symbol);
+        symbolTable.push(std::vector<Symbol>{});
     }
 
-    for( int i = 0; i < ast.size(); i++ ) {
+    void addSymbol(Symbol symbol) {
+        symbolTable.top().push_back(symbol);
+    }
+
+    void leave() {
+        symbolTable.pop();
+    }
+};
+
+#include "codegen/x86_64.hpp"
+
+std::string archGen(std::unique_ptr<CodeGen>& cg, ParseResults ast);
+
+CompilerParams gparams;
+std::string codegen(CompilerParams& params, ParseResults ast) {
+    gparams = params;
+    if( params.target == "x86_64" ) {
+        std::unique_ptr<CodeGen> backend = std::make_unique<X86_64>();
+        return archGen(backend, ast);
+    }
+
+    return "Fail to generate the Assembly Code";
+}
+
+bool fAccess = true;
+std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
+    std::stringstream ss;
+    if( fAccess ) {
+        ss << backend->entry();
+        fAccess = false;
+    }
+
+    for(int i = 0; i < ast.size(); i++) {
         auto& node = ast[i];
 
+        if( first(node) == ParseResultKind::Desconstructor ) continue;
+
         if( first(node) == ParseResultKind::Function ) {
-            function func = std::get<function>(second(node));
+            // Make function prologue
+            auto func = std::get<function>(second(node));
+            ss << backend->prologue(func);
 
-            if( func.name == "main" && !( func.argst.empty() ) ) CompilerOutputs::Fatal("Syntax error - Main function cannot have arguments.");
-
-            ss << "\n    " << func.ret.string(optimized) << ' ' << func.name << '(';
-
-            if( (i + 1) >= ast.size() ) CompilerOutputs::Fatal("Syntax error - Incomplete function.");
-            if( first(ast[i + 1]) != ParseResultKind::Desconstructor ) CompilerOutputs::Fatal("Syntax error - All functions need a destructor.");
-
-            auto d = std::get<desconstructor>(second(ast[i + 1]));
-
-            if( d.why == desconstructor::reason::that ) {
-                auto& argst = func.argst;
-                auto& argsv = d.identifiers;
-
-                if( argsv.size() != argst.size() ) CompilerOutputs::Fatal("Syntax error - mismatched argument count. (" + std::to_string(argst.size()) + " != " + std::to_string(argsv.size()) + ")");
-
-                for( int j = 0; j < func.argst.size(); j++ ) {
-                    ss << argst[j].string(optimized, argsv[j]);
-                    if( j != func.argst.size() - 1 ) ss << ", ";
+            // Add function to symtable
+            backend->addSymbolEntry(CodeGen::Symbol{
+                func.name,
+                CodeGen::SymbolId {
+                    CodeGen::SymbolType::FUNCTION,
+                    (backend->funcid-1)
                 }
+            });
+
+            // calculate stack size
+            int sub = 0;
+            for( auto type : func.argst ) {
+                sub -= type.bytes();
             }
 
-            ss << ") {\n";
+            ParseResults body = parse(gparams, func.body);
 
-            ss << "        return 0;\n";
-            ss << "    }\n";
+            // Add arguments on symtable
+            auto desc = std::get<desconstructor>(second(body[0]));
+            for( int j = 0; j < desc.identifiers.size(); j++ ) {
+                auto& id = desc.identifiers[j];
+                backend->addSymbol(CodeGen::Symbol{
+                    id,
+                    CodeGen::SymbolTypeId {
+                        CodeGen::SymbolType::VARIABLE,
+                        (CodeGen::Type) func.argst[j].matrixPos(),
+                        (sub)
+                    }
+                });
+                sub = (sub + func.argst[j].bytes());
+            }
+
+            // Code of the function body
+            ss << codegen(gparams, body);
+
+            // Generate the epilogue
+            ss << backend->epilogue();
         }
     }
-
-    ss << "};\n\n";
-
-    ss << "#if defined(limited_hardware)\n";
-    ss << "int main() {\n";
-    ss << "    Morgana run;\n";
-    ss << "    return run.main();\n";
-    ss << "}\n";
-    ss << "#else\n";
-    ss << "int main(int argc, char **argv) {\n";
-    ss << "    Morgana run(argv);\n";
-    ss << "    return run.main();\n";
-    ss << "}\n";
-    ss << "#endif\n";
 
     return ss.str();
 }

@@ -1,5 +1,5 @@
 alias a0 = [*:u8]*
 
-i32 main {
-    () @_
+i32 main i8 i32 {
+    (a, b, ) @_
 }

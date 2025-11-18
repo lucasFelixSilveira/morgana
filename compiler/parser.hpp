@@ -7,6 +7,7 @@
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <tuple>
 #include <variant>
@@ -53,66 +54,39 @@ public:
         return type(ptr, Array, value, size);
     }
 
+    type() = default;
     type(bool ptr, radical kind, std::string value, int size = 0) : ptr(ptr), kind(kind), value(value), size(size) {}
 
-    std::string string(bool optimized = false, std::string var = "") const {
-        std::stringstream ss;
-
-        if( kind == radical::Common && optimized ) {
-            ss << string_cpp(value);
-            if(! var.empty() ) ss << ' ';
-            if( ptr ) ss << "*";
-            if(! var.empty() ) ss << var;
-            return ss.str();
+    int bytes() const {
+        switch (kind) {
+            case Common:
+                if( value == "i8" )   return 1;
+                if( value == "i16" )  return 2;
+                if( value == "i32" )  return 4;
+                if( value == "i64" )  return 8;
+                if( value == "u8" )   return 1;
+                if( value == "u16" )  return 2;
+                if( value == "u32" )  return 4;
+                if( value == "u64" )  return 8;
+                if( value == "f32" )  return 4;
+                if( value == "f64" )  return 8;
+                if( value == "void" ) return 0;
+            case Vector:
+                return size * bytes();
+            case Array:
+                return size * bytes();
         }
+    }
 
-        if( kind == radical::Common ) {
-            ss << string_cpp(value);
-            if( ptr ) ss << "&";
-            if(! var.empty() ) ss << ' ' << var;
-            return ss.str();
-        }
-
-        if( kind == radical::Vector && optimized ) {
-
-            ss << string_cpp(value);
-            if(! var.empty() ) ss << ' ';
-            ss << '*';
-
-            if( ptr ) ss << '*';
-            if(! var.empty() ) ss << var;
-            return ss.str();
-        }
-
-        if( kind == radical::Vector ) {
-            ss << "std::vector<" << string_cpp(value) << ">";
-            if( ptr ) ss << '&';
-            if(! var.empty() ) ss << ' ' << var;
-            return ss.str();
-        }
-
-        if( kind == radical::Array && optimized ) {
-            ss << string_cpp(value);
-
-            if( var.empty() ) {
-                if( ptr ) ss << "**";
-            } else {
-                ss << ' ';
-                if( ptr ) ss << '*';
-                ss << var << '[' << size << ']';
-            }
-
-            return ss.str();
-        }
-
-        if( kind == radical::Array ) {
-            ss << "std::array<" << string_cpp(value) << ", " << size << ">";
-            if( ptr ) ss << '&';
-            if(! var.empty() ) ss << ' ' << var;
-            return ss.str();
-        }
-
-        return "";
+    int matrixPos() const {
+        if( value == "i8" )   return 3;
+        if( value == "i16" )  return 2;
+        if( value == "i32" )  return 1;
+        if( value == "i64" )  return 0;
+        if( value == "u8" )   return 3;
+        if( value == "u16" )  return 2;
+        if( value == "u32" )  return 1;
+        if( value == "u64" )  return 0;
     }
 };
 
@@ -120,8 +94,9 @@ struct function {
     std::string name;
     std::vector<type> argst;
     type ret;
+    std::vector<std::string> body;
 
-    function(std::string name, std::vector<type> argst, type ret) : name(name), argst(argst), ret(ret) {}
+    function(std::string name, std::vector<type> argst, type ret, std::vector<std::string> body) : name(name), argst(argst), ret(ret), body(body) {}
 };
 
 struct desconstructor {
@@ -271,7 +246,17 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
                 }
 
                 auto second = std::get<1>(is_type(token));
-                function func(next, argst, std::get<type>(second));
+
+                std::vector<std::string> body = {};
+                int j = i;
+                for(; j < tokens.size(); j++) {
+                    auto token = tokens[j];
+                    if( token == "}" ) { break; }
+                    body.push_back(token);
+                }
+
+                i = j;
+                function func(next, argst, std::get<type>(second), body);
                 results.push_back({ ParseResultKind::Function, func });
 
                 continue;
