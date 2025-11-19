@@ -8,14 +8,22 @@
 int main() {
     Storage storage;
     Builder builder(false);
+    int addr;
 
     Context context;
     morgana::desconstruct d(morgana::mics::that, {});
     context << d.string();
 
-    auto int8 = morgana::type::integer(8);
-    morgana::alloc ptr(storage, int8.shared());
+    auto int32 = morgana::type::integer(32);
+
+    morgana::alloc ptr(storage, int32.shared());
     context << ptr.string();
+
+    morgana::store store(ptr.shared(), 32);
+    context << store.string();
+
+    morgana::load load(storage, ptr.shared());
+    context << load.save(&addr).string();
 
     morgana::function f("main", morgana::type::integer(32).shared(), {}, context.string());
 
