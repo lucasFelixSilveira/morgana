@@ -1,5 +1,8 @@
 alias a0 = [*:u8]*
 
-i32 main i8 i32 {
-    (a, b, ) @_
+i32 main {
+    () @_
+    _0 = alloc i32
+    store _0 21
+    _1 = load _0
 }

@@ -8,3 +8,7 @@ std::string Storage::string() {
     }
     return ss.str();
 }
+
+void Storage::leave() {
+    local = 0;
+}

@@ -3,6 +3,7 @@
 #include "../codegen.hpp"
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 #include <array>
 
@@ -11,13 +12,11 @@ public:
 
     // Makes the setup of the x86 architecture
     X86_64() {
-        symbolTable.push(std::vector<Symbol>{});
+        symbolTable.push_back(std::vector<Symbol>{});
         stackPos = 0;
         funcid = 0;
 
         registerMap[RETURN] = "%rax";
-        registerMap[STACK] = "%rsp";
-        registerMap[STACK_PTR] = "%rbp";
 
         #ifdef UNIX_LIKE
         #define MAX_REGISTER_ARGUMENTS 6
@@ -110,7 +109,7 @@ public:
         }
 
         stackPos -= sub;
-        ss << "\tsubq $8, %rsp\n";
+        if( sub != 0 ) ss << "\tsubq $" << sub << ", %rsp\n";
 
         sub = stackPos;
 
@@ -134,4 +133,50 @@ public:
 
         return ss.str();
     }
+
+    std::string allocate(allocation alloc) override {
+        std::stringstream ss;
+
+        ss << "\tsubq $" << alloc.data.bytes() << ", %rsp\n";
+        stackPos -= alloc.data.bytes();
+
+        // ss << '\t' << mov(alloc.data.bytes()) << " $0, " << stackPos - alloc.data.bytes() << "(%rbp)\n";
+
+        return ss.str();
+    };
+
+    std::string load(std::string name) override {
+        std::stringstream ss;
+
+        auto symbol = getSymbol(name);
+        if( std::holds_alternative<SymbolTypeId>(symbol) ) {
+            auto typeId = std::get<SymbolTypeId>(symbol);
+            auto type = std::get<1>(typeId);
+            auto addr = std::get<2>(typeId);
+            auto args = std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]);
+
+            ss << '\t' << mov(type.bytes()) << " " << addr << "(%rbp), " << args.at(0).at(type.matrixPos()) << "\n";
+        }
+
+        return ss.str();
+    }
+
+    std::string store(std::string name, std::string value) override {
+        std::stringstream ss;
+
+        auto symbol = getSymbol(name);
+        if( std::holds_alternative<SymbolTypeId>(symbol) ) {
+
+            auto typeId = std::get<SymbolTypeId>(symbol);
+            auto type = std::get<1>(typeId);
+            auto addr = std::get<2>(typeId);
+            auto args = std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]);
+
+            ss << '\t' << mov(type.bytes()) << " $" << value << ", " << addr << "(%rbp)\n";
+
+        }
+
+        return ss.str();
+    }
+
 };

@@ -114,20 +114,40 @@ struct alias {
     alias(std::string name, type data) : name(name), data(data) {}
 };
 
+struct store {
+    std::string identifier;
+    std::string value;
+
+    store(std::string identifier, std::string value) : identifier(identifier), value(value) {}
+};
+
+struct allocation {
+    std::string name;
+    type data;
+
+    allocation(std::string name, type data) : name(name), data(data) {}
+};
+
 
 enum ParseResultKind {
     Function,
     Desconstructor,
-    Alias
+    Alias,
+    Allocation,
+    Store,
+    Load
 };
 
 using ParseResult = std::tuple<
     ParseResultKind,
     std::variant<
         std::monostate,
+        std::string,
         function,
         desconstructor,
-        alias
+        alias,
+        allocation,
+        store
     >
 >;
 
@@ -192,6 +212,11 @@ bool is_identifier(std::string& value) {
     return std::regex_match(value, r);
 }
 
+bool is_number(std::string& value) {
+    std::regex r("^[0-9]+$");
+    return std::regex_match(value, r);
+}
+
 ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
     ParseResults results = {};
 
@@ -200,7 +225,7 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
         std::string next = "";
         if( (i + 1) < tokens.size() ) next = tokens[i + 1];
 
-        if( token[0] == '(' || token == "()" ) {
+        if( token[0] == '(' ) {
             i += 1;
             std::stringstream ss;
             ss << token;
@@ -225,7 +250,6 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
 
             desconstructor d(identifiers);
             if( next == "@_" ) d.why = desconstructor::reason::that;
-            i += 1;
 
             results.push_back({ ParseResultKind::Desconstructor, d });
             continue;
@@ -248,7 +272,7 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
                 auto second = std::get<1>(is_type(token));
 
                 std::vector<std::string> body = {};
-                int j = i;
+                int j = i + 1;
                 for(; j < tokens.size(); j++) {
                     auto token = tokens[j];
                     if( token == "}" ) { break; }
@@ -256,8 +280,8 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
                 }
 
                 i = j;
-                function func(next, argst, std::get<type>(second), body);
-                results.push_back({ ParseResultKind::Function, func });
+                function f(next, argst, std::get<type>(second), body);
+                results.push_back({ ParseResultKind::Function, f });
 
                 continue;
             }
@@ -280,6 +304,51 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
             results.push_back({ ParseResultKind::Alias, a });
 
             continue;
+        }
+
+        if( token == "store" ) {
+            auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `store` keyword. `store id value`"); };
+
+            if( (! is_identifier(next)) || (i + 2) >= tokens.size()) err();
+            auto number = tokens[i + 2];
+            if(! is_number(number) ) err();
+            i += 2;
+
+            store s(next, number);
+            results.push_back({ ParseResultKind::Store, s });
+
+            continue;
+        }
+
+        if( is_identifier(token) ) {
+            auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `definition`. `id value ...`"); };
+            if( next != "=" || (i + 2) >= tokens.size() ) err();
+            i += 2;
+
+            auto rhs = tokens[i++];
+            if( rhs != "alloc" && rhs != "load" ) err();
+
+            if( rhs == "alloc" && i >= tokens.size() ) err();
+            if( rhs == "load"  && i >= tokens.size() ) err();
+
+            auto next = tokens[i++];
+            if( rhs == "alloc" && first(is_type(next)) ) {
+                allocation al(token, std::get<type>(second(is_type(next))));
+                results.push_back({ ParseResultKind::Allocation, al });
+
+                i--;
+                continue;
+            }
+
+            if( rhs == "load" && is_identifier(next) ) {
+                results.push_back({ ParseResultKind::Load, next });
+
+                i--;
+                continue;
+            }
+
+
+            err();
         }
     }
 

@@ -180,7 +180,7 @@ namespace morgana {
     };
 
     /*
-     *
+     * Class to make a desconstructor of something
      */
     struct desconstruct {
         using data = std::variant<std::string>;
@@ -207,6 +207,20 @@ namespace morgana {
                 } break;
             }
 
+            return ss.str();
+        }
+    };
+
+    struct alloc {
+        std::shared_ptr<type> info;
+        long long addr = 0;
+        alloc(Storage& storage, std::shared_ptr<type> info) : info(info) {
+            addr = storage.local++;
+        }
+
+        std::string string() {
+            std::stringstream ss;
+            ss << '_' << addr << " = alloc " << info->string() << '\n';
             return ss.str();
         }
     };

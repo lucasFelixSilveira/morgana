@@ -8,6 +8,8 @@ struct Storage {
 public:
     long long addr = 0;
     std::vector<std::tuple<long long, std::string>> aliases;
+    long long local = 0;
 
+    void leave();
     std::string string();
 };

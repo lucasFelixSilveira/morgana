@@ -13,9 +13,9 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	subq $8, %rsp
-	movb %dil, -5(%rbp)
-	movl %esi, -4(%rbp)
+	subq $4, %rsp
+	movl $21, -4(%rbp)
+	movl -4(%rbp), %edi
 .LFE0:
 	movq %rbp, %rsp
 	popq %rbp
