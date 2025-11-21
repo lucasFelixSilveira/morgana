@@ -72,7 +72,7 @@ public:
                 if( value == "f64" )  return 8;
                 if( value == "void" ) return 0;
             case Vector:
-                return size * bytes();
+                return size * type::common(false, value).bytes();
             case Array:
                 return size * bytes();
         }
