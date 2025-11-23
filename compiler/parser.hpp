@@ -58,6 +58,7 @@ public:
     type(bool ptr, radical kind, std::string value, int size = 0) : ptr(ptr), kind(kind), value(value), size(size) {}
 
     int bytes() const {
+        std::cout << "value: '" << value << "\' common: " << kind << std::endl;
         switch (kind) {
             case Common:
                 if( value == "i8" )   return 1;
@@ -72,9 +73,9 @@ public:
                 if( value == "f64" )  return 8;
                 if( value == "void" ) return 0;
             case Vector:
-                return size * type::common(false, value).bytes();
+                return 1;
             case Array:
-                return size * bytes();
+                return size * type::common(false, value).bytes();
         }
     }
 

@@ -62,13 +62,13 @@ public:
 
         ss << "mov";
         if(bytes == 1) {
-            ss << "b";
+            ss << 'b';
         } else if(bytes == 2) {
-            ss << "w";
+            ss << 'w';
         } else if(bytes == 4) {
-            ss << "l";
+            ss << 'l';
         } else if(bytes == 8) {
-            ss << "q";
+            ss << 'q';
         }
 
         return ss.str();
@@ -134,8 +134,10 @@ public:
         return ss.str();
     }
 
-    std::string allocate(allocation alloc) override {
+    std::string alloc(allocation alloc) override {
         std::stringstream ss;
+
+        std::cout << "alloc: " << alloc.data.bytes() << std::endl;
 
         ss << "\tsubq $" << alloc.data.bytes() << ", %rsp\n";
         stackPos -= alloc.data.bytes();

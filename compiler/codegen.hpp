@@ -44,7 +44,7 @@ public:
     virtual std::string store(type t, BitRegister, int& sub) = 0;
     virtual std::string prologue(function func) = 0;
     virtual std::string epilogue() = 0;
-    virtual std::string allocate(allocation alloc) = 0;
+    virtual std::string alloc(allocation alloc) = 0;
     virtual std::string load(std::string name) = 0;
     virtual std::string store(std::string name, std::string value) = 0;
 
@@ -148,7 +148,7 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
 
         if( first(node) == ParseResultKind::Allocation ) {
             auto alloc = std::get<allocation>(second(node));
-            ss << backend->allocate(alloc);
+            ss << backend->alloc(alloc);
 
             backend->addSymbol(CodeGen::Symbol{
                 alloc.name,
