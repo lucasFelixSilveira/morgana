@@ -31,7 +31,7 @@ public:
     using BitRegister = std::array<std::string, 4>;
     using RegisterBitMatrix = std::vector<BitRegister>;
 
-    std::map<Register, std::variant<std::string, RegisterBitMatrix>> registerMap;
+    std::map<Register, std::variant<std::string, RegisterBitMatrix, BitRegister>> registerMap;
     SymbolTable symbolTable;
 
     int scope = 0;
@@ -47,6 +47,7 @@ public:
     virtual std::string alloc(allocation alloc) = 0;
     virtual std::string load(std::string name) = 0;
     virtual std::string store(std::string name, std::string value) = 0;
+    virtual std::string ret() = 0;
 
     void addSymbolEntry(Symbol symbol) {
         symbolTable.at(symbolTable.size()-1).push_back(symbol);
@@ -159,7 +160,6 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
                 }
             });
 
-            // ss << backend->load(alloc.name);
             continue;
         }
 
@@ -172,6 +172,11 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
         if( first(node) == ParseResultKind::Load ) {
             auto data = std::get<std::string>(second(node));
             ss << backend->load(data);
+            continue;
+        }
+
+        if( first(node) == ParseResultKind::Ret ) {
+            ss << backend->ret();
             continue;
         }
 

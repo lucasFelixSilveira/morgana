@@ -131,6 +131,7 @@ struct allocation {
 
 
 enum ParseResultKind {
+    Ret,
     Function,
     Desconstructor,
     Alias,
@@ -317,6 +318,12 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
 
             store s(next, number);
             results.push_back({ ParseResultKind::Store, s });
+
+            continue;
+        }
+
+        if( token == "ret" ) {
+            results.push_back({ ParseResultKind::Ret, std::monostate() });
 
             continue;
         }

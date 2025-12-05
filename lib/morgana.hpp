@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -69,6 +70,12 @@ namespace morgana {
 
         int bytes() const {
             return bits / 8;
+        }
+
+        template<typename T, typename X>
+        static std::shared_ptr<type> builtin(T symbol, std::function<std::shared_ptr<morgana::type>(X *x)> assemble) {
+            if( std::holds_alternative<std::shared_ptr<X>>(symbol) ) return assemble(symbol);
+            if( std::holds_alternative<type>(symbol) ) return std::get<std::shared_ptr<morgana::type>>(symbol);
         }
 
         /*

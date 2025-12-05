@@ -16,11 +16,11 @@ public:
         stackPos = 0;
         funcid = 0;
 
-        registerMap[RETURN] = "%rax";
+        registerMap[RETURN] = (BitRegister) {"%rax", "%eax", "%ax", "%axl"};
 
         #ifdef UNIX_LIKE
         #define MAX_REGISTER_ARGUMENTS 6
-        registerMap[ARGUMENTS] = RegisterBitMatrix {
+        registerMap[ARGUMENTS] = (RegisterBitMatrix) {
             {"%rdi", "%edi", "%di", "%dil"},
             {"%rsi", "%esi", "%si", "%sil"},
             {"%rdx", "%edx", "%dx", "%dl"},
@@ -30,7 +30,7 @@ public:
         };
         #else
         #define MAX_REGISTER_ARGUMENTS 4
-        registerMap[ARGUMENTS] = RegisterBitMatrix {
+        registerMap[ARGUMENTS] = (RegisterBitMatrix) {
             {"%rcx", "%ecx", "%cx", "%cl"},
             {"%rdx", "%edx", "%dx", "%dl"},
             {"%r8", "%r8d", "%r8w", "%r8b"},
@@ -129,6 +129,7 @@ public:
         ss << ".LFE" << (funcid - 1) << ":\n"
            << "\tmovq %rbp, %rsp\n"
            << "\tpopq %rbp\n"
+           << "\tmovq %rdi, %rax\n"
            << "\tret\n";
 
         return ss.str();
@@ -136,8 +137,6 @@ public:
 
     std::string alloc(allocation alloc) override {
         std::stringstream ss;
-
-        std::cout << "alloc: " << alloc.data.bytes() << std::endl;
 
         ss << "\tsubq $" << alloc.data.bytes() << ", %rsp\n";
         stackPos -= alloc.data.bytes();
@@ -180,5 +179,14 @@ public:
 
         return ss.str();
     }
+
+    std::string ret() override {
+        std::stringstream ss;
+
+        ss << "\tmovq %rdi, %rax\n"
+           << "\tjmp .LFE" << funcid << "\n";
+
+        return ss.str();
+    };
 
 };

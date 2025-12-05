@@ -1,5 +1,8 @@
 
 i32 main {
 () @_
-_0 = alloc [4:i8]
+var = alloc i32
+store var 10
+valor = load var
+ret
 }
