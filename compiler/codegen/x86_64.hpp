@@ -16,7 +16,7 @@ public:
         stackPos = 0;
         funcid = 0;
 
-        registerMap[RETURN] = (BitRegister) {"%rax", "%eax", "%ax", "%axl"};
+        registerMap[RETURN] = "%rax";
 
         #ifdef UNIX_LIKE
         #define MAX_REGISTER_ARGUMENTS 6
@@ -129,7 +129,6 @@ public:
         ss << ".LFE" << (funcid - 1) << ":\n"
            << "\tmovq %rbp, %rsp\n"
            << "\tpopq %rbp\n"
-           << "\tmovq %rdi, %rax\n"
            << "\tret\n";
 
         return ss.str();

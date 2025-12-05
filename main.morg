@@ -2,7 +2,7 @@
 i32 main {
 () @_
 var = alloc i32
-store var 10
+store var 28
 valor = load var
 ret
 }

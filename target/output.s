@@ -14,12 +14,11 @@ main:
 	pushq %rbp
 	movq %rsp, %rbp
 	subq $4, %rsp
-	movl $10, -4(%rbp)
+	movl $28, -4(%rbp)
 	movl -4(%rbp), %edi
 	movq %rdi, %rax
 	jmp .LFE0
 .LFE0:
 	movq %rbp, %rsp
 	popq %rbp
-	movq %rdi, %rax
 	ret
