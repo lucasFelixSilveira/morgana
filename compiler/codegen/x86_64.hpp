@@ -1,11 +1,15 @@
 #pragma once
 
+// ss << '\t' << movresize(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << sub << std::get<BitRegister>(registerMap[UTILS_REG]).at(pi64) << "\n";
+
 #include "../codegen.hpp"
 #include <sstream>
 #include <string>
 #include <variant>
 #include <vector>
 #include <array>
+
+#define pi64 0
 
 struct X86_64 : public CodeGen {
 public:
@@ -17,6 +21,9 @@ public:
         funcid = 0;
 
         registerMap[RETURN] = "%rax";
+        registerMap[STACK_PTR] = "%rbp";
+
+        registerMap[UTILS_REG] = (BitRegister) { "%rax", "%eax", "%ax", "%al" };
 
         #ifdef UNIX_LIKE
         #define MAX_REGISTER_ARGUMENTS 6
@@ -74,13 +81,55 @@ public:
         return ss.str();
     }
 
+    std::string movresize(int bytes = 0) override {
+        std::stringstream ss;
+
+        ss << "movz";
+        if(bytes == 1) {
+            ss << 'b';
+        } else if(bytes == 2) {
+            ss << 'w';
+        } else if(bytes == 4) {
+            ss << 'l';
+        } else if(bytes == 8) {
+            ss << 'q';
+        }
+
+        ss << "q";
+
+        return ss.str();
+    }
+
+    std::string loadarg(type t, int& sub, std::string reg) {
+        std::stringstream ss;
+
+        ss << mov(t.bytes()) << " " << sub << "(" << reg << "), " << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << "\n";
+
+        return ss.str();
+    }
+
     std::string store(type t, BitRegister reg, int& sub) override {
         std::stringstream ss;
 
         int pos = t.matrixPos();
 
-        ss << '\t' << mov(t.bytes()) << ' ' << reg.at(pos) << ", " << sub << "(" << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
-        sub += t.bytes();
+        if( t.kind == type::radical::Common ) {
+            sub -= t.bytes();
+            ss << "\t" << mov(t.bytes()) << ' ' << reg.at(pos) << ", " << sub << "(" << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
+        }
+
+        if( t.kind == type::radical::Array ) {
+            type rad = type::common(false, t.value);
+
+            int x = t.bytes() / rad.bytes();
+            for(int i = 0; i < x; i++ ) {
+                std::string rr = reg.at(rad.matrixPos());
+                sub -= rad.bytes();
+
+                ss << "\t" << loadarg(rad, sub, reg.at(pi64));
+                ss << '\t' << mov(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << sub << '(' << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
+            }
+        }
 
         return ss.str();
     }
@@ -89,14 +138,13 @@ public:
     std::string prologue(function func) override {
         std::stringstream ss;
 
-        ss << "\n.text\n";
+        ss << "\n.text\n"
+           << ".globl " << func.name << "\n";
 
         #ifdef UNIX_LIKE
-        ss << ".globl " << func.name << "\n"
-           << ".type " << func.name << ", @function\n";
+        ss << ".type " << func.name << ", @function\n";
         #else
-        ss << ".globl " << func.name << "\n"
-           << ".def " << func.name << "; .scl 2; .type " << (func.ret.bytes() * 8) << "; .endef\n"
+        ss << ".def " << func.name << "; .scl 2; .type " << (func.ret.bytes() * 8) << "; .endef\n";
         #endif
         ss << func.name << ":\n"
            << ".LFP" << (funcid++) <<":\n"
@@ -111,12 +159,12 @@ public:
         stackPos -= sub;
         if( sub != 0 ) ss << "\tsubq $" << sub << ", %rsp\n";
 
-        sub = stackPos;
+        int ssub = 0;
 
         if( func.argst.size() <=MAX_REGISTER_ARGUMENTS ) {
             int i = 0;
             for(auto type : func.argst) {
-                ss << store(type, std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]).at(i++), sub);
+                ss << store(type, std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]).at(i++), ssub);
             }
         }
 

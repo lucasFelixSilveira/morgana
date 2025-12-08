@@ -27,7 +27,7 @@ public:
     using Symbol = std::tuple<std::string, SymbolBody>;
     using SymbolTable = std::vector<std::vector<Symbol>>;
 
-    enum Register { RETURN, STACK, STACK_PTR, ARGUMENTS };
+    enum Register { RETURN, STACK, STACK_PTR, ARGUMENTS, UTILS_REG };
     using BitRegister = std::array<std::string, 4>;
     using RegisterBitMatrix = std::vector<BitRegister>;
 
@@ -41,6 +41,7 @@ public:
     virtual ~CodeGen() = default;
     virtual std::string entry() = 0;
     virtual std::string mov(int bytes = 0) = 0;
+    virtual std::string movresize(int bytes = 0) = 0;
     virtual std::string store(type t, BitRegister, int& sub) = 0;
     virtual std::string prologue(function func) = 0;
     virtual std::string epilogue() = 0;

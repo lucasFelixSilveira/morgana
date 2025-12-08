@@ -1,8 +1,4 @@
 
-i32 main {
+i32 main [2:i8] {
 () @_
-var = alloc i32
-store var 28
-valor = load var
-ret
 }

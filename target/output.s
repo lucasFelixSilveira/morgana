@@ -1,6 +1,12 @@
 .text
 .globl _start
 _start:
+    movq %rsp, %rbp
+    sub $2, %rsp
+    movb $11, -1(%rbp)
+    movb $24, -2(%rbp)
+    mov %rbp, %rdi
+
 	call main
 	movq %rax, %rdi
 	movq $60, %rax
@@ -13,11 +19,11 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	subq $4, %rsp
-	movl $28, -4(%rbp)
-	movl -4(%rbp), %edi
-	movq %rdi, %rax
-	jmp .LFE0
+	subq $2, %rsp
+	movb -1(%rdi), %al
+	movb %al, -1(%rbp)
+	movb -2(%rdi), %al
+	movb %al, -2(%rbp)
 .LFE0:
 	movq %rbp, %rsp
 	popq %rbp
