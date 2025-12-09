@@ -1,4 +1,7 @@
-# Moragana IR language <img align="right" src="./assets/icon_nobg.png" alt="Morgana Logo" width="65" height="65">
+<img align="right" src="./assets/icon_nobg.png" alt="Morgana Logo" width="120px" height="120px">
+<br><br>
+
+# 🐑 Moragana IR language 
 
 Morgana is a lightweight, high-performance Intermediate Representation designed to cut through the heavy, bloated pipeline of LLVM.
 It powers the Carla compiler, but is fully usable as a standalone IR for any custom language or code generation tool.
