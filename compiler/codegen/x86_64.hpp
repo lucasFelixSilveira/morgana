@@ -11,6 +11,9 @@
 
 #define pi64 0
 
+// this is needed to keep track of the position of the stack pointer
+int alreadypos = 0;
+
 struct X86_64 : public CodeGen {
 public:
 
@@ -122,12 +125,14 @@ public:
             type rad = type::common(false, t.value);
 
             int x = t.bytes() / rad.bytes();
-            for(int i = 0; i < x; i++ ) {
+            for( int i = 0; i < x; i++ ) {
                 std::string rr = reg.at(rad.matrixPos());
                 sub -= rad.bytes();
 
-                ss << "\t" << loadarg(rad, sub, reg.at(pi64));
-                ss << '\t' << mov(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << sub << '(' << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
+                int position = (sub + alreadypos);
+
+                ss << "\t" << loadarg(rad, position, reg.at(pi64));
+                ss << '\t' << mov(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << position << '(' << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
             }
         }
 
@@ -161,10 +166,12 @@ public:
 
         int ssub = 0;
 
+
         if( func.argst.size() <=MAX_REGISTER_ARGUMENTS ) {
             int i = 0;
             for(auto type : func.argst) {
                 ss << store(type, std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]).at(i++), ssub);
+                alreadypos += type.bytes();
             }
         }
 
@@ -178,6 +185,8 @@ public:
            << "\tmovq %rbp, %rsp\n"
            << "\tpopq %rbp\n"
            << "\tret\n";
+
+        alreadypos = 0;
 
         return ss.str();
     }
