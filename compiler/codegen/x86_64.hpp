@@ -10,6 +10,7 @@
 #include <array>
 
 #define pi64 0
+#define PSIZE sizeof(char*)
 
 // this is needed to keep track of the position of the stack pointer
 int alreadypos = 0;
@@ -84,6 +85,23 @@ public:
         return ss.str();
     }
 
+    std::string lea(int bytes = 0) override {
+        std::stringstream ss;
+
+        ss << "lea";
+        if(bytes == 1) {
+            ss << 'b';
+        } else if(bytes == 2) {
+            ss << 'w';
+        } else if(bytes == 4) {
+            ss << 'l';
+        } else if(bytes == 8) {
+            ss << 'q';
+        }
+
+        return ss.str();
+    }
+
     std::string movresize(int bytes = 0) override {
         std::stringstream ss;
 
@@ -123,17 +141,8 @@ public:
 
         if( t.kind == type::radical::Array ) {
             type rad = type::common(false, t.value);
-
-            int x = t.bytes() / rad.bytes();
-            for( int i = 0; i < x; i++ ) {
-                std::string rr = reg.at(rad.matrixPos());
-                sub -= rad.bytes();
-
-                int position = (sub + alreadypos);
-
-                ss << "\t" << loadarg(rad, position, reg.at(pi64));
-                ss << '\t' << mov(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << position << '(' << std::get<std::string>(registerMap[STACK_PTR]) << ")\n";
-            }
+            sub -= PSIZE;
+            ss << '\t' << mov(PSIZE) << ' ' << reg.at(i64) << ", " << sub << '(' << std::get<std::string>(registerMap[STACK_PTR]) << ") # " << t.value << ( t.kind == type::radical::Array ? "*" : "") << "\n";
         }
 
         return ss.str();
@@ -158,7 +167,8 @@ public:
 
         int sub = 0;
         for( auto type : func.argst ) {
-            sub += type.bytes();
+            if( type.kind == type::radical::Array ) sub += PSIZE;
+            else sub += type.bytes();
         }
 
         stackPos -= sub;
@@ -166,10 +176,9 @@ public:
 
         int ssub = 0;
 
-
         if( func.argst.size() <=MAX_REGISTER_ARGUMENTS ) {
             int i = 0;
-            for(auto type : func.argst) {
+            for( auto type : func.argst ) {
                 ss << store(type, std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]).at(i++), ssub);
                 alreadypos += type.bytes();
             }
@@ -193,9 +202,10 @@ public:
 
     std::string alloc(allocation alloc) override {
         std::stringstream ss;
+        int size = typesize(alloc.data);
 
-        ss << "\tsubq $" << alloc.data.bytes() << ", %rsp\n";
-        stackPos -= alloc.data.bytes();
+        ss << "\t" << mov(size) << " $0, " << stackPos << "(%rbp)\n";
+        stackPos -= size;
 
         // ss << '\t' << mov(alloc.data.bytes()) << " $0, " << stackPos - alloc.data.bytes() << "(%rbp)\n";
 
@@ -212,7 +222,8 @@ public:
             auto addr = std::get<2>(typeId);
             auto args = std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]);
 
-            ss << '\t' << mov(type.bytes()) << " " << addr << "(%rbp), " << args.at(0).at(type.matrixPos()) << "\n";
+            int size = typesize(type);
+            ss << '\t' << mov(size) << " " << addr << "(%rbp), " << args.at(0).at(matrixPosByBytes(size)) << "\n";
         }
 
         return ss.str();
@@ -222,8 +233,22 @@ public:
         std::stringstream ss;
 
         auto symbol = getSymbol(name);
-        if( std::holds_alternative<SymbolTypeId>(symbol) ) {
+        if( value == "temp" && std::get<1>(lastTemp) == "vec" ) {
+            auto id = std::get<SymbolTypeId>(symbol);
+            removeSymbol(name);
+            addSymbol(Symbol {
+                name,
+                SymbolTypeId {
+                    SymbolType::VARIABLE,
+                    std::get<1>(id),
+                    std::get<0>(lastTemp)
+                }
+            });
 
+            return "";
+        }
+
+        if( std::holds_alternative<SymbolTypeId>(symbol) ) {
             auto typeId = std::get<SymbolTypeId>(symbol);
             auto type = std::get<1>(typeId);
             auto addr = std::get<2>(typeId);
@@ -232,6 +257,15 @@ public:
             ss << '\t' << mov(type.bytes()) << " $" << value << ", " << addr << "(%rbp)\n";
 
         }
+
+        return ss.str();
+    }
+
+    std::string store(type t, int literal, int pos) override {
+        std::stringstream ss;
+
+        ss << '\t' << mov(t.bytes()) << " $" << literal << ", " << pos << "(%rbp)\n";
+        stackPos -= t.bytes();
 
         return ss.str();
     }
@@ -245,4 +279,9 @@ public:
         return ss.str();
     };
 
+    std::string mock(std::string data) override {
+        std::stringstream ss;
+        ss << "\tcall morg." << data << '\n';
+        return ss.str();
+    }
 };

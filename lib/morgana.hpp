@@ -338,4 +338,26 @@ namespace morgana {
         }
     };
 
+    struct ret {
+        static std::string string() {
+            return "ret\n";
+        }
+    };
+
+    struct value {
+        std::variant<std::string, long> data;
+
+        static value& literal(long i) {
+            value v;
+            v.data = i;
+            return v;
+        }
+    };
+
+    struct setindex {
+        alloc addr;
+        value index;
+
+        setindex(alloc addr, int index) : addr(addr), index(index) {}
+    }
 };

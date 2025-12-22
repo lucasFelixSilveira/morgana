@@ -13,13 +13,12 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	movb $72, -5(%rbp)
-	movb $69, -4(%rbp)
-	movb $76, -3(%rbp)
-	movb $76, -2(%rbp)
-	movb $79, -1(%rbp)
-	movq -5(%rbp), %rdi
-	call morg.print
+	subq $6, %rsp
+	movl %edi, -4(%rbp)
+	movb -1(%rsi), %al
+	movb %al, -1(%rbp)
+	movb -2(%rsi), %al
+	movb %al, -2(%rbp)
 .LFE0:
 	movq %rbp, %rsp
 	popq %rbp

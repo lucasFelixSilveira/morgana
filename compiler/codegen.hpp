@@ -2,6 +2,7 @@
 
 #include <linux/limits.h>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <stack>
 #include <string>
@@ -15,6 +16,22 @@
 #if defined(__linux__) || defined(__APPLE__)
 #define UNIX_LIKE
 #endif
+
+int typesize(type t) {
+    if( t.ptr ) return sizeof(char*);
+    if( t.kind == type::radical::Array ) return sizeof(char*);
+    return t.bytes();
+}
+
+int matrixPosByBytes(int bytes) {
+    switch(bytes) {
+        case 8: return 0;
+        case 4: return 1;
+        case 2: return 2;
+        case 1: return 3;
+        default: return -1;
+    }
+}
 
 struct CodeGen {
 public:
@@ -34,13 +51,15 @@ public:
     std::map<Register, std::variant<std::string, RegisterBitMatrix, BitRegister>> registerMap;
     SymbolTable symbolTable;
 
+    std::tuple<int, std::string> lastTemp;
     int scope = 0;
-    int stackPos;
-    int funcid;
+    int stackPos = 0;
+    int funcid = 0;
 
     virtual ~CodeGen() = default;
     virtual std::string entry() = 0;
     virtual std::string mov(int bytes = 0) = 0;
+    virtual std::string lea(int bytes = 0) = 0;
     virtual std::string movresize(int bytes = 0) = 0;
     virtual std::string store(type t, BitRegister, int& sub) = 0;
     virtual std::string prologue(function func) = 0;
@@ -48,7 +67,9 @@ public:
     virtual std::string alloc(allocation alloc) = 0;
     virtual std::string load(std::string name) = 0;
     virtual std::string store(std::string name, std::string value) = 0;
+    virtual std::string store(type t, int literal, int pos) = 0;
     virtual std::string ret() = 0;
+    virtual std::string mock(std::string data) = 0;
 
     void addSymbolEntry(Symbol symbol) {
         symbolTable.at(symbolTable.size()-1).push_back(symbol);
@@ -65,6 +86,24 @@ public:
         }
     }
 
+    bool removeSymbol(const std::string& name) {
+        for (auto it = symbolTable.rbegin(); it != symbolTable.rend(); ++it) {
+            auto& currentScope = *it;
+
+            auto symbol_it = std::find_if(currentScope.begin(), currentScope.end(),
+                [&name](const Symbol& symbol) {
+                    return std::get<0>(symbol) == name;
+                });
+
+            if (symbol_it != currentScope.end()) {
+                currentScope.erase(symbol_it);
+                return true;
+            }
+        }
+
+        // Símbolo não encontrado em nenhum escopo
+        return false;
+    }
     void addSymbol(Symbol symbol) {
         symbolTable.at(symbolTable.size()-1).push_back(symbol);
     }
@@ -89,6 +128,16 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
     return "Fail to generate the Assembly Code";
 }
 
+std::string codegen(CompilerParams& params, ParseResults ast, std::unique_ptr<CodeGen>& backend) {
+    gparams = params;
+    if( params.target == "x86_64" ) {
+        return archGen(backend, ast);
+    }
+
+    return "Fail to generate the Assembly Code";
+}
+
+bool sample = false;
 bool fAccess = true;
 std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
     std::stringstream ss;
@@ -99,6 +148,11 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
 
     for(int i = 0; i < ast.size(); i++) {
         auto& node = ast[i];
+
+        if( first(node) == ParseResultKind::Sample ) {
+            sample = true;
+            continue;
+        }
 
         if( first(node) == ParseResultKind::Desconstructor ) continue;
 
@@ -119,9 +173,11 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
             // calculate stack size
             int sub = 0;
             for( auto type : func.argst ) {
-                sub -= type.bytes();
+                if( type.ptr || type.kind == type::radical::Array ) sub -= sizeof(char*);
+                else sub -= type.bytes();
             }
 
+            backend->stackPos = sub;
             ParseResults body = parse(gparams, func.body);
 
             // Add arguments on symtable
@@ -140,7 +196,7 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
             }
 
             // Code of the function body
-            ss << codegen(gparams, body);
+            ss << codegen(gparams, body, backend);
 
             // Generate the epilogue
             ss << backend->epilogue();
@@ -150,14 +206,16 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
 
         if( first(node) == ParseResultKind::Allocation ) {
             auto alloc = std::get<allocation>(second(node));
-            ss << backend->alloc(alloc);
+            int pos = backend->stackPos;
+            if(! sample ) ss << backend->alloc(alloc);
+            else sample = false;
 
             backend->addSymbol(CodeGen::Symbol{
                 alloc.name,
                 CodeGen::SymbolTypeId {
                     CodeGen::SymbolType::VARIABLE,
                     alloc.data,
-                    backend->stackPos
+                    pos
                 }
             });
 
@@ -179,6 +237,24 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
         if( first(node) == ParseResultKind::Ret ) {
             ss << backend->ret();
             continue;
+        }
+
+        if( first(node) == ParseResultKind::Mock ) {
+            auto data = std::get<std::string>(second(node));
+            ss << backend->mock(data);
+            continue;
+        }
+
+        if( first(node) == ParseResultKind::VectorAllocation ) {
+            auto data = std::get<std::tuple<type, std::vector<int>>>(second(node));
+            auto vec = std::get<1>(data);
+            backend->stackPos -= vec.size() * typesize(std::get<0>(data));
+            int indices = backend->stackPos;
+            backend->lastTemp = { backend->stackPos, "vec" };
+            for( int i = 0; i < vec.size(); i++ ) {
+                ss << backend->store(std::get<0>(data), vec[i], indices);
+                indices += typesize(std::get<0>(data));
+            }
         }
 
     }

@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <iostream>
+#include <linux/limits.h>
 #include <regex>
 #include <sstream>
 #include <stack>
@@ -20,6 +21,7 @@ std::tuple<std::string, std::string, int> types[] = {
     { "u64", "uint64_t", 8 }, { "i64", "int64_t", 8 },
     { "void", "void", 0 }
 };
+
 
 std::string string_cpp(const std::string common) {
     for( auto type : types ) {
@@ -58,7 +60,6 @@ public:
     type(bool ptr, radical kind, std::string value, int size = 0) : ptr(ptr), kind(kind), value(value), size(size) {}
 
     int bytes() const {
-        std::cout << "value: '" << value << "\' common: " << kind << std::endl;
         switch (kind) {
             case Common:
                 if( value == "i8" )   return 1;
@@ -137,12 +138,16 @@ enum ParseResultKind {
     Alias,
     Allocation,
     Store,
-    Load
+    Load,
+    VectorAllocation,
+    Sample,
+    Mock
 };
 
 using ParseResult = std::tuple<
     ParseResultKind,
     std::variant<
+        std::tuple<type, std::vector<int>>,
         std::monostate,
         std::string,
         function,
@@ -168,6 +173,10 @@ auto second(T tuple) {
 std::tuple<bool, std::variant<std::monostate, type>> is_type(std::string& value) {
     bool ptr = false;
     std::string token = value;
+
+    if( value == "ptr" ) {
+        return { true, type::common(true, "i8") };
+    }
 
     if( token[token.length()-1] == '*' ) {
         ptr = true;
@@ -289,6 +298,31 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
             }
         }
 
+        if( token == "temp" ) {
+            if( next == "vec" ) {
+                auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `temp vec` keyword. `temp vec <type> <... values> nil`"); };
+
+                std::string radical = tokens[i + 2];
+                if(! first(is_type(radical)) ) err();
+
+                std::vector<int> vec;
+
+                int j = 1;
+                for(; true; j++ ) {
+                    int current = i + 2 + j;
+                    if( tokens[current] == "nil" ) break;
+                    vec.push_back(std::atoi(tokens[current].c_str()));
+                }
+
+                auto tvariant = second(is_type(radical));
+                auto t = std::get<type>(tvariant);
+                results.push_back({ ParseResultKind::VectorAllocation, std::tuple<type, std::vector<int>>{ t, vec } });
+
+                i += j + 2;
+                continue;
+            }
+        }
+
         if( token == "alias" ) {
             auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `alias` keyword. `alias id = type`"); };
 
@@ -308,12 +342,23 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
             continue;
         }
 
+        if( token == "sample" ) {
+            results.push_back({ ParseResultKind::Sample, std::monostate() });
+            continue;
+        }
+
+        if( token == "mcall" ) {
+            i += 1;
+            results.push_back({ ParseResultKind::Mock, next });
+            continue;
+        }
+
         if( token == "store" ) {
             auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `store` keyword. `store id value`"); };
 
             if( (! is_identifier(next)) || (i + 2) >= tokens.size()) err();
             auto number = tokens[i + 2];
-            if(! is_number(number) ) err();
+            if(! is_number(number) && number != "temp" ) err();
             i += 2;
 
             store s(next, number);

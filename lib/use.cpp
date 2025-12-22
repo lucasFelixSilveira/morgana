@@ -16,15 +16,13 @@ int main() {
 
     auto int32 = morgana::type::integer(32);
 
-    morgana::alloc ptr(storage, int32.shared());
+    morgana::alloc ptr(storage, int32.vec(12).shared());
     context << ptr.string();
 
-    morgana::store store(ptr.shared(), 32);
-    context << store.string();
+    morgana::setindex index(ptr, morgana::value);
+    context << index.string();
 
-    morgana::load load(storage, ptr.shared());
-    context << load.save(&addr).string();
-
+    context << morgana::ret::string();
     morgana::function f("main", morgana::type::integer(32).shared(), {}, context.string());
 
     builder << f.string();
