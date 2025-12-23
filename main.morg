@@ -1,8 +1,0 @@
-i32 main {
-    () @_
-    temp vec i8 72 69 76 76 79 32 87 79 82 76 68 33 10 0 nil
-    sample msg = alloc ptr
-    store msg temp
-    _0 = load msg
-    mcall print
-}
