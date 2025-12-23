@@ -1,5 +1,6 @@
 #include "compiler_outputs.hpp"
 #include "params.hpp"
+#include "mocks.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -66,7 +67,7 @@ main(int argc, char **argv)
     if(! outFile.is_open() ) {
         CompilerOutputs::Fatal("Failed to open output file target/output.s");
     }
-    outFile << generated;
+    outFile << generated << link_mocks();
     outFile.close();
     if( outFile.fail() ) {
         CompilerOutputs::Fatal("Failed to write Morgana IR to target/output.s");

@@ -163,7 +163,8 @@ public:
         ss << func.name << ":\n"
            << ".LFP" << (funcid++) <<":\n"
            << "\tpushq %rbp\n"
-           << "\tmovq %rsp, %rbp\n";
+           << "\tmovq %rsp, %rbp\n"
+           << "\tsubq $16, %rsp\n";
 
         int sub = 0;
         for( auto type : func.argst ) {
@@ -223,7 +224,7 @@ public:
             auto args = std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]);
 
             int size = typesize(type);
-            ss << '\t' << mov(size) << " " << addr << "(%rbp), " << args.at(0).at(matrixPosByBytes(size)) << "\n";
+            ss << '\t' << lea(size) << " " << addr << "(%rbp), " << args.at(0).at(matrixPosByBytes(size)) << "\n";
         }
 
         return ss.str();

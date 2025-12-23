@@ -32,9 +32,7 @@ std::string string_cpp(const std::string common) {
 };
 
 std::vector<std::tuple<std::string, std::string>> basics = {};
-// std::vector<std::string> alias = {};
-
-
+std::vector<std::string> mocks = {};
 
 struct type {
 public:
@@ -348,6 +346,8 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
         }
 
         if( token == "mcall" ) {
+            mocks.push_back(next);
+
             i += 1;
             results.push_back({ ParseResultKind::Mock, next });
             continue;
