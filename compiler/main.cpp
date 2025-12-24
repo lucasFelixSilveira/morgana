@@ -74,6 +74,14 @@ main(int argc, char **argv)
     }
 
     std::filesystem::path absPath = std::filesystem::absolute("target/output.s");
+    std::filesystem::path absPathObj = std::filesystem::absolute("target/output.o");
+    std::filesystem::path absPathExe = std::filesystem::absolute(
+        #ifdef _WIN32
+            "target/output.exe"
+        #else
+            "target/output"
+        #endif
+    );
 
     /* calculate time of the **INTERNAL** compilation process */
     auto mid = std::chrono::high_resolution_clock::now();
@@ -91,8 +99,11 @@ main(int argc, char **argv)
               << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " (not compiled yet)";
 
     /* Compile Morgana Assembly to object file using as silently */
-    std::string gpp = "as " + absPath.string() + " > /dev/null 2>&1";
-    if( std::system(gpp.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
+    std::string as = "as " + absPath.string() + " -o " + absPathObj.string() + " > /dev/null 2>&1";
+    if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
+
+    std::string ld = "ld " + absPathObj.string() + " -o " + absPathExe.string() + " > /dev/null 2>&1";
+    if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

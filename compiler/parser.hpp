@@ -139,13 +139,15 @@ enum ParseResultKind {
     Load,
     VectorAllocation,
     Sample,
-    Mock
+    Mock,
+    GetPointerElement
 };
 
 using ParseResult = std::tuple<
     ParseResultKind,
     std::variant<
         std::tuple<type, std::vector<int>>,
+        std::tuple<std::string, std::string>,
         std::monostate,
         std::string,
         function,
@@ -379,10 +381,11 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
             i += 2;
 
             auto rhs = tokens[i++];
-            if( rhs != "alloc" && rhs != "load" ) err();
+            if( rhs != "alloc" && rhs != "load" && rhs != "getptrelement" ) err();
 
             if( rhs == "alloc" && i >= tokens.size() ) err();
             if( rhs == "load"  && i >= tokens.size() ) err();
+            if( rhs == "getptrelement" && (i+1) >= tokens.size() ) err();
 
             auto next = tokens[i++];
             if( rhs == "alloc" && first(is_type(next)) ) {
@@ -400,6 +403,11 @@ ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
                 continue;
             }
 
+            if( rhs == "getptrelement" && is_identifier(next) && is_number(tokens[i]) ) {
+                results.push_back({ ParseResultKind::GetPointerElement, std::tuple<std::string, std::string>{next, tokens[i]} });
+                i--;
+                continue;
+            }
 
             err();
         }

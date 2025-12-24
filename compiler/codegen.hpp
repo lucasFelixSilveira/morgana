@@ -60,6 +60,8 @@ public:
     virtual std::string entry() = 0;
     virtual std::string mov(int bytes = 0) = 0;
     virtual std::string lea(int bytes = 0) = 0;
+    virtual std::string sub(int bytes = 0) = 0;
+    virtual std::string add(int bytes = 0) = 0;
     virtual std::string movresize(int bytes = 0) = 0;
     virtual std::string store(type t, BitRegister, int& sub) = 0;
     virtual std::string prologue(function func) = 0;
@@ -70,6 +72,7 @@ public:
     virtual std::string store(type t, int literal, int pos) = 0;
     virtual std::string ret() = 0;
     virtual std::string mock(std::string data) = 0;
+    virtual std::string getPointerElement(std::string name, std::string index) = 0;
 
     void addSymbolEntry(Symbol symbol) {
         symbolTable.at(symbolTable.size()-1).push_back(symbol);
@@ -201,6 +204,8 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
             // Generate the epilogue
             ss << backend->epilogue();
 
+            backend->funcid++;
+
             continue;
         }
 
@@ -255,6 +260,15 @@ std::string archGen(std::unique_ptr<CodeGen>& backend, ParseResults ast) {
                 ss << backend->store(std::get<0>(data), vec[i], indices);
                 indices += typesize(std::get<0>(data));
             }
+        }
+
+        if( first(node) == ParseResultKind::GetPointerElement ) {
+            auto data = std::get<std::tuple<std::string, std::string>>(second(node));
+            ss << backend->getPointerElement(
+                std::get<0>(data),
+                std::get<1>(data)
+            );
+            continue;
         }
 
     }

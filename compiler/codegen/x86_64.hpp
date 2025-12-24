@@ -3,6 +3,7 @@
 // ss << '\t' << movresize(rad.bytes()) << ' ' << std::get<BitRegister>(registerMap[UTILS_REG]).at(t.matrixPos()) << ", " << sub << std::get<BitRegister>(registerMap[UTILS_REG]).at(pi64) << "\n";
 
 #include "../codegen.hpp"
+#include <cstdlib>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -102,6 +103,40 @@ public:
         return ss.str();
     }
 
+    std::string sub(int bytes = 0) override {
+        std::stringstream ss;
+
+        ss << "sub";
+        if(bytes == 1) {
+            ss << 'b';
+        } else if(bytes == 2) {
+            ss << 'w';
+        } else if(bytes == 4) {
+            ss << 'l';
+        } else if(bytes == 8) {
+            ss << 'q';
+        }
+
+        return ss.str();
+    }
+
+    std::string add(int bytes = 0) override {
+        std::stringstream ss;
+
+        ss << "add";
+        if(bytes == 1) {
+            ss << 'b';
+        } else if(bytes == 2) {
+            ss << 'w';
+        } else if(bytes == 4) {
+            ss << 'l';
+        } else if(bytes == 8) {
+            ss << 'q';
+        }
+
+        return ss.str();
+    }
+
     std::string movresize(int bytes = 0) override {
         std::stringstream ss;
 
@@ -161,7 +196,7 @@ public:
         ss << ".def " << func.name << "; .scl 2; .type " << (func.ret.bytes() * 8) << "; .endef\n";
         #endif
         ss << func.name << ":\n"
-           << ".LFP" << (funcid++) <<":\n"
+           << ".LFP" << funcid <<":\n"
            << "\tpushq %rbp\n"
            << "\tmovq %rsp, %rbp\n"
            << "\tsubq $16, %rsp\n";
@@ -191,7 +226,7 @@ public:
     std::string epilogue() override {
         std::stringstream ss;
 
-        ss << ".LFE" << (funcid - 1) << ":\n"
+        ss << ".LFE" << funcid << ":\n"
            << "\tmovq %rbp, %rsp\n"
            << "\tpopq %rbp\n"
            << "\tret\n";
@@ -285,4 +320,26 @@ public:
         ss << "\tcall morg." << data << '\n';
         return ss.str();
     }
+
+    std::string getPointerElement(std::string name, std::string index) override {
+        std::stringstream ss;
+
+        auto symbol = getSymbol(name);
+        if( std::holds_alternative<SymbolTypeId>(symbol) ) {
+            auto typeId = std::get<SymbolTypeId>(symbol);
+            auto type = std::get<1>(typeId);
+            auto addr = std::get<2>(typeId);
+            auto args = std::get<RegisterBitMatrix>(registerMap[ARGUMENTS]);
+
+            auto x = is_type(type.value);
+            auto y = std::get<1>(second(x));
+
+            int size = typesize(type);
+            ss << '\t' << lea(size) << " " << addr << '+' << (std::atoi(index.c_str()) * y.bytes()) << "(%rbp), " << args.at(1).at(matrixPosByBytes(size)) << "\n";
+            ss << '\t' << mov(y.bytes()) << " (" << args.at(1).at(matrixPosByBytes(size)) << "), " << args.at(0).at(matrixPosByBytes(y.bytes())) << "\n";
+        }
+
+        return ss.str();
+    }
+
 };
