@@ -15,7 +15,7 @@ namespace morgana {
     using dynamic = std::monostate;
     using non_size = std::variant<dynamic, int>;
 
-    enum radical { Integer = 0, Alias = 1 };
+    enum radical { Integer = 0, Alias = 1, Unknown = 2 };
 
     /*
      * This class represents a type in the IR.
@@ -47,6 +47,11 @@ namespace morgana {
          */
         static type integer(int bits) {
             type t(radical::Integer, bits);
+            return t;
+        }
+
+        static type unknown() {
+            type t(radical::Unknown, (sizeof(char*) * 8));
             return t;
         }
 
@@ -338,26 +343,4 @@ namespace morgana {
         }
     };
 
-    struct ret {
-        static std::string string() {
-            return "ret\n";
-        }
-    };
-
-    struct value {
-        std::variant<std::string, long> data;
-
-        static value& literal(long i) {
-            value v;
-            v.data = i;
-            return v;
-        }
-    };
-
-    struct setindex {
-        alloc addr;
-        value index;
-
-        setindex(alloc addr, int index) : addr(addr), index(index) {}
-    }
 };

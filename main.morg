@@ -1,11 +1,13 @@
 i32 main {
     () @_
 
-    temp vec i32 24 72 36 nil
+    temp vec i8
+        72 69 76 76 79
+        32 87 79 82 76
+        68 33 10 0 nil
 
-    sample msg = alloc i32*
+    sample msg = alloc i8*
     store msg temp
-
-    _1 = getptrelement msg 2
-    ret
+    _0 = load msg
+    mcall print
 }
