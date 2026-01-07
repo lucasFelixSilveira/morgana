@@ -1,14 +1,32 @@
 #pragma once
 
-#include <functional>
+#include <algorithm>
+#include <array>
+#include <iostream>
 #include <memory>
+#include <regex>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <variant>
 #include <vector>
 
+#include "morgana/context.hpp"
 #include "morgana/storage.hpp"
+
+#define OPERATION_ORDER_FIXER(mul)                                   \
+    for( (dl = dlayers.at(i++)); i < dlayers.size(); )               \
+    if( (dl.op % mul) == 0 ) {                                       \
+        cp.push_back(operations {                                    \
+            .layer = dl.layer,                                       \
+            .lhs = dl.data,                                          \
+            .rhs = dlayers.at(i++).data,                             \
+            .op = dl.op                                              \
+        });                                                          \
+        if( (i + 1) < dlayers.size() )                               \
+            dl = dlayers.at(i++);                                    \
+    } else dl = dlayers.at(i++);
 
 namespace morgana {
 
@@ -343,4 +361,122 @@ namespace morgana {
         }
     };
 
+    struct expr {
+        Storage& storage;
+
+        enum operand {
+            add = 10, sub = 20, mul = 12, div = 24, mod = 36
+        };
+
+        std::array<std::tuple<std::string, operand>, 5> op_names = {
+            std::tuple<std::string, operand> {"+", operand::add},
+            std::tuple<std::string, operand> {"-", operand::sub},
+            std::tuple<std::string, operand> {"*", operand::mul},
+            std::tuple<std::string, operand> {"/", operand::div},
+            std::tuple<std::string, operand> {"%", operand::mod}
+        };
+
+        struct nodes;
+
+        using values = std::variant<std::shared_ptr<nodes>, std::string>;
+
+        struct nodes {
+        public:
+            operand op;
+            values lhs;
+            values rhs;
+
+            nodes() = default;
+
+            std::shared_ptr<nodes> shared() {
+                return std::make_shared<nodes>(*this);
+            }
+        };
+
+        struct data_layer {
+            operand op;
+            int layer;
+            std::string data;
+            std::shared_ptr<nodes> node;
+        };
+
+        std::vector<data_layer> dlayers;
+        expr(Storage& storage) : storage(storage) {};
+
+private:
+        void recursivemakecall(std::shared_ptr<nodes> node, int layer = 0) {
+            std::array<values, 2> data = { node->lhs, node->rhs };
+
+            for( values v : data ) {
+                if( std::holds_alternative<std::string>(v) ) {
+                    dlayers.push_back(data_layer {
+                        .op    = node->op,
+                        .layer = layer,
+                        .data  = std::get<std::string>(v),
+                        .node  = node
+                    });
+                }
+
+                if( std::holds_alternative<std::shared_ptr<nodes>>(v) ) {
+                    recursivemakecall(std::get<std::shared_ptr<nodes>>(v), (layer + 1));
+                }
+            }
+        }
+
+public:
+        struct operations {
+            int layer;
+            std::string lhs;
+            std::string rhs;
+            operand op;
+        };
+
+        std::string make(std::shared_ptr<nodes> nodes) {
+            std::stringstream ss;
+            recursivemakecall(nodes);
+
+            std::vector<operations> cp = {};
+
+            // mul - div - mod
+            data_layer dl;
+            int i = 0;
+            OPERATION_ORDER_FIXER(12)
+
+            // sub - add
+            i = 0;
+            OPERATION_ORDER_FIXER(10)
+
+            std::sort(cp.begin(), cp.end(), [](const operations& a, const operations& b) {
+                return a.layer > b.layer;
+            });
+
+            // Context ctx;
+            // for( operations data : cp ) {
+            //     std::regex digit("^[0-9]+$");
+
+            //     if( std::regex_match(data.lhs, digit) ) {
+
+            //     }
+
+            //     alloc a()
+            // }
+
+            return ss.str();
+        }
+    };
 };
+
+/*
+x = 1 + (2 + (3 + (4 + 5)))
+
+    1 + ()
+        2 ()
+           3 ()
+              4 5
+
+x = (1 + 2) * (3*4) + 5
+    ()  *  ()
+  1+2   () + ()
+        3*4  5+0
+
+*/
