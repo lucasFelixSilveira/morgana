@@ -15,19 +15,6 @@
 #include "morgana/context.hpp"
 #include "morgana/storage.hpp"
 
-#define OPERATION_ORDER_FIXER(mul)                                   \
-    for( (dl = dlayers.at(i++)); i < dlayers.size(); )               \
-    if( (dl.op % mul) == 0 ) {                                       \
-        cp.push_back(operations {                                    \
-            .layer = dl.layer,                                       \
-            .lhs = dl.data,                                          \
-            .rhs = dlayers.at(i++).data,                             \
-            .op = dl.op                                              \
-        });                                                          \
-        if( (i + 1) < dlayers.size() )                               \
-            dl = dlayers.at(i++);                                    \
-    } else dl = dlayers.at(i++);
-
 namespace morgana {
 
     using dynamic = std::monostate;
@@ -365,7 +352,7 @@ namespace morgana {
         Storage& storage;
 
         enum operand {
-            add = 10, sub = 20, mul = 12, div = 24, mod = 36
+            add = 1, sub = 2, mul = 3, div = 4, mod = 5
         };
 
         std::array<std::tuple<std::string, operand>, 5> op_names = {
@@ -403,65 +390,152 @@ namespace morgana {
         std::vector<data_layer> dlayers;
         expr(Storage& storage) : storage(storage) {};
 
-private:
+    private:
         void recursivemakecall(std::shared_ptr<nodes> node, int layer = 0) {
-            std::array<values, 2> data = { node->lhs, node->rhs };
+            if( std::holds_alternative<std::shared_ptr<nodes>>(node->lhs) ) {
+                recursivemakecall(std::get<std::shared_ptr<nodes>>(node->lhs), layer + 1);
+            }
 
-            for( values v : data ) {
-                if( std::holds_alternative<std::string>(v) ) {
-                    dlayers.push_back(data_layer {
-                        .op    = node->op,
-                        .layer = layer,
-                        .data  = std::get<std::string>(v),
-                        .node  = node
-                    });
-                }
+            if( std::holds_alternative<std::shared_ptr<nodes>>(node->rhs) ) {
+                recursivemakecall(std::get<std::shared_ptr<nodes>>(node->rhs), layer + 1);
+            }
 
-                if( std::holds_alternative<std::shared_ptr<nodes>>(v) ) {
-                    recursivemakecall(std::get<std::shared_ptr<nodes>>(v), (layer + 1));
-                }
+            std::string lhs_data, rhs_data;
+
+            if (std::holds_alternative<std::string>(node->lhs)) {
+                lhs_data = std::get<std::string>(node->lhs);
+            } else {
+                lhs_data = "temp";
+            }
+
+            if (std::holds_alternative<std::string>(node->rhs)) {
+                rhs_data = std::get<std::string>(node->rhs);
+            } else {
+                rhs_data = "temp";
+            }
+
+            dlayers.push_back(data_layer {
+                .op = node->op,
+                .layer = layer,
+                .data = lhs_data,
+                .node = node
+            });
+
+            dlayers.push_back(data_layer {
+                .op = node->op,
+                .layer = layer,
+                .data = rhs_data,
+                .node = node
+            });
+        }
+
+        int getPriority(operand op) {
+            switch(op) {
+                case operand::mul:
+                case operand::div:
+                case operand::mod: return 2;
+                case operand::add:
+                case operand::sub: return 1;
+                default: return 0;
             }
         }
 
-public:
+        std::string opToString(operand op) {
+            switch(op) {
+                case operand::add: return "add";
+                case operand::sub: return "sub";
+                case operand::mul: return "mul";
+                case operand::div: return "div";
+                case operand::mod: return "mod";
+                default: return "unknown";
+            }
+        }
+
+    public:
         struct operations {
             int layer;
             std::string lhs;
             std::string rhs;
             operand op;
+            std::shared_ptr<nodes> node;
         };
 
-        std::string make(std::shared_ptr<nodes> nodes) {
+        std::string make(std::shared_ptr<nodes> root_node) {
             std::stringstream ss;
-            recursivemakecall(nodes);
+            dlayers.clear();
 
-            std::vector<operations> cp = {};
+            std::vector<operations> all_ops;
+            collectOperations(root_node, all_ops, 0);
 
-            // mul - div - mod
-            data_layer dl;
-            int i = 0;
-            OPERATION_ORDER_FIXER(12)
+            std::sort(all_ops.begin(), all_ops.end(),
+                [this](const operations& a, const operations& b) {
+                    int prioA = getPriority(a.op);
+                    int prioB = getPriority(b.op);
 
-            // sub - add
-            i = 0;
-            OPERATION_ORDER_FIXER(10)
+                    if( prioA != prioB ) return prioA > prioB;
+                    return a.layer > b.layer;
+                });
 
-            std::sort(cp.begin(), cp.end(), [](const operations& a, const operations& b) {
-                return a.layer > b.layer;
-            });
+            std::unordered_map<std::shared_ptr<nodes>, std::string> node_to_temp;
+            int temp_counter = storage.exprcount;
 
-            // Context ctx;
-            // for( operations data : cp ) {
-            //     std::regex digit("^[0-9]+$");
+            for( const auto& op : all_ops ) {
+                std::string lhs_val = op.lhs;
+                std::string rhs_val = op.rhs;
 
-            //     if( std::regex_match(data.lhs, digit) ) {
+                if( std::holds_alternative<std::shared_ptr<nodes>>(op.node->lhs) ) {
+                    auto child_node = std::get<std::shared_ptr<nodes>>(op.node->lhs);
+                    auto it = node_to_temp.find(child_node);
+                    if (it != node_to_temp.end()) {
+                        lhs_val = it->second;
+                    }
+                }
 
-            //     }
+                if( std::holds_alternative<std::shared_ptr<nodes>>(op.node->rhs) ) {
+                    auto child_node = std::get<std::shared_ptr<nodes>>(op.node->rhs);
+                    auto it = node_to_temp.find(child_node);
+                    if (it != node_to_temp.end()) {
+                        rhs_val = it->second;
+                    }
+                }
 
-            //     alloc a()
-            // }
+                std::string temp_name = "e" + std::to_string(temp_counter++);
+                node_to_temp[op.node] = temp_name;
 
+                ss << "temp lhs " << lhs_val << '\n';
+                ss << "temp rhs " << rhs_val << '\n';
+                ss << "do " << opToString(op.op) << ", " << temp_name << '\n';
+            }
+
+            storage.exprcount = temp_counter;
             return ss.str();
+        }
+
+    private:
+        void collectOperations(std::shared_ptr<nodes> node, std::vector<operations>& ops, int layer) {
+            if( std::holds_alternative<std::shared_ptr<nodes>>(node->lhs) ) {
+                collectOperations(std::get<std::shared_ptr<nodes>>(node->lhs), ops, layer + 1);
+            }
+
+            if( std::holds_alternative<std::shared_ptr<nodes>>(node->rhs) ) {
+                collectOperations(std::get<std::shared_ptr<nodes>>(node->rhs), ops, layer + 1);
+            }
+
+            std::string lhs_str = std::holds_alternative<std::string>(node->lhs)
+                ? std::get<std::string>(node->lhs)
+                : "node_result";
+
+            std::string rhs_str = std::holds_alternative<std::string>(node->rhs)
+                ? std::get<std::string>(node->rhs)
+                : "node_result";
+
+            ops.push_back(operations {
+                .layer = layer,
+                .lhs = lhs_str,
+                .rhs = rhs_str,
+                .op = node->op,
+                .node = node
+            });
         }
     };
 };
