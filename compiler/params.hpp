@@ -28,7 +28,7 @@ CompilerParams::format(int argc, char **argv)
 {
     char *cwd  = argv[0];
     char *command = argv[1];
-    char *main = (char*) "main.crl";
+    char *main = (char*) "main.morg";
     char *target = (char*) detectSystemInfo().arch.c_str();
     bool optimized = false;
 

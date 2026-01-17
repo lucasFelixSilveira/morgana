@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "extensors.hpp"
 #include "parser.hpp"
 #include "tokenizer.hpp"
 #include "codegen.hpp"
@@ -33,6 +34,7 @@ main(int argc, char **argv)
     if( argc < min_arguments ) CompilerOutputs::Fatal("You need enter with a action. If you don't know the acceptable actions, use: help.");
 
     CompilerParams params = CompilerParams::format(argc, argv);
+    if( params.command == "install" ) ExtensorManager::install(argv);
     if( params.command != "build" ) return 0;
 
     CompilerOutputs::Log("Starting the compilation!");

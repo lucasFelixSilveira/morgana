@@ -13,6 +13,7 @@ main:
 .LFP0:
 	push %rbp
 	mov %rsp, %rbp
+	sub $16, %rsp
 
 .LFE0:
 	mov %rbp, %rsp

@@ -70,10 +70,30 @@ public:
                     ss << "\"name\": \"" << data.name << "\",";
                     ss << "\"params\": [";
 
-                    for( auto param : data.argst ) ss << param.json() << ",\n";
+                    bool first = true;
+                    for( auto param : data.argst ) {
+                        ss << ((first) ? "" : ", ") << param.json() << "";
+                        if( first ) first = !first;
+                    };
 
                     ss << "],";
                     ss << "\"body\": " << json(body) << "";
+                } break;
+
+                case ParseResultKind::Desconstructor: {
+                    auto data = std::get<desconstructor>(value);
+                    auto body = parse(data.identifiers);
+
+                    ss << "\"why\": \"" << data.why << "\",";
+                    ss << "\"id\": [";
+
+                    bool first = true;
+                    for( auto param : data.identifiers ) {
+                        ss << ((first) ? "" : ", ") << "\"" << param << "\"";
+                        if( first ) first = !first;
+                    }
+
+                    ss << "]";
                 } break;
 
                 default: break;

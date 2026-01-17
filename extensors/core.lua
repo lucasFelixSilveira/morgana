@@ -16,6 +16,10 @@ core.kind = {
     get_pointer_element = 10
 };
 
+core.desconstructor = {
+    that = 0
+}
+
 core.os = {
     windows = "Windows",
     linux = "Linux",

@@ -85,18 +85,20 @@ public:
 
     std::string json() {
         std::stringstream ss;
-        ss << "{\n";
+        ss << "{ ";
+        ss << " \"bytes\": " << bytes() << ", ";
+        ss << " \"matrix\": " << matrixPos() << ", ";
 
         switch(kind) {
             case Array: {
-                ss << "\t\"kind\": \"Array\",\n";
-                ss << "\t\"size\": " << size << ",\n";
-                ss << "\t\"type\": \"" << value << "\"\n";
+                ss << " \"kind\": \"Array\", ";
+                ss << " \"size\": " << size << ", ";
+                ss << " \"type\": \"" << value << "\" ";
             } break;
 
             case Common: {
-                ss << "\t\"kind\": \"Common\",\n";
-                ss << "\t\"type\": \"" << value << "\"\n";
+                ss << " \"kind\": \"Common\", ";
+                ss << " \"type\": \"" << value << "\" ";
             } break;
         }
 
