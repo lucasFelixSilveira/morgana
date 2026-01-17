@@ -1,3 +1,6 @@
-i32 main {
-    () @_
+i32 main i32 {
+    (x, ) @_
+    store x 82
+    _0 = load x
+    ret
 }

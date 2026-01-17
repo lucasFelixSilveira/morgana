@@ -58,15 +58,19 @@ public:
     static std::string json(ParseResults& ast) {
         std::stringstream ss;
         ss << "[";
+        bool ffirst = true;
         for(auto& [key, value] : ast) {
-            ss << "{";
-            ss << "\"kind\": " << key << ",";
+            ss << ((ffirst) ? "" : ", ") << "{";
+            if( ffirst ) ffirst = !ffirst;
+
+            ss << "\"kind\": " << key;
             switch(key) {
 
                 case ParseResultKind::Function: {
                     auto data = std::get<function>(value);
                     auto body = parse(data.body);
 
+                    ss << ", ";
                     ss << "\"name\": \"" << data.name << "\",";
                     ss << "\"params\": [";
 
@@ -77,12 +81,13 @@ public:
                     };
 
                     ss << "],";
-                    ss << "\"body\": " << json(body) << "";
+                    ss << "\"body\": " << json(body);
                 } break;
 
                 case ParseResultKind::Desconstructor: {
                     auto data = std::get<desconstructor>(value);
 
+                    ss << ", ";
                     ss << "\"why\": " << data.why << ",";
                     ss << "\"id\": [";
 
@@ -93,6 +98,20 @@ public:
                     }
 
                     ss << "]";
+                } break;
+
+                case ParseResultKind::Load: {
+                    auto data = std::get<std::string>(value);
+                    ss << ", ";
+                    ss << "\"what\": \"" << data << "\"";
+                } break;
+
+                case ParseResultKind::Store: {
+                    auto data = std::get<store>(value);
+
+                    ss << ", ";
+                    ss << "\"src\": \"" << data.value << "\",";
+                    ss << "\"dest\": \"" << data.identifier << "\"";
                 } break;
 
                 default: break;

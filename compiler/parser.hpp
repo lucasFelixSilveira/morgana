@@ -87,7 +87,7 @@ public:
         std::stringstream ss;
         ss << "{ ";
         ss << " \"bytes\": " << bytes() << ", ";
-        ss << " \"matrix\": " << matrixPos() << ", ";
+        ss << " \"matrix\": " << (matrixPos() + 1) << ", ";
 
         switch(kind) {
             case Array: {

@@ -14,6 +14,11 @@ main:
 	push %rbp
 	mov %rsp, %rbp
 	sub $16, %rsp
+	movl %edi, -4(%rbp)
+	movl $82, -4(%rbp)
+	movl -4(%rbp), %edi
+	movq %rdi, %rax
+	jmp .LFE0
 
 .LFE0:
 	mov %rbp, %rsp
