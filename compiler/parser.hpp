@@ -36,7 +36,7 @@ std::vector<std::string> mocks = {};
 
 struct type {
 public:
-    enum radical { Common, Vector, Array };
+    enum radical { Common, Array };
     radical kind;
     std::string value;
     int size = 0;
@@ -44,10 +44,6 @@ public:
 
     static type common(bool ptr, std::string value) {
         return type(ptr, Common, value);
-    }
-
-    static type vector(bool ptr, std::string value) {
-        return type(ptr, Vector, value);
     }
 
     static type array(bool ptr, std::string value, int size) {
@@ -71,8 +67,6 @@ public:
                 if( value == "f32" )  return 4;
                 if( value == "f64" )  return 8;
                 if( value == "void" ) return 0;
-            case Vector:
-                return 1;
             case Array:
                 return size * type::common(false, value).bytes();
         }
@@ -87,6 +81,27 @@ public:
         if( value == "u16" )  return 2;
         if( value == "u32" )  return 1;
         if( value == "u64" )  return 0;
+    }
+
+    std::string json() {
+        std::stringstream ss;
+        ss << "{\n";
+
+        switch(kind) {
+            case Array: {
+                ss << "\t\"kind\": \"Array\",\n";
+                ss << "\t\"size\": " << size << ",\n";
+                ss << "\t\"type\": \"" << value << "\"\n";
+            } break;
+
+            case Common: {
+                ss << "\t\"kind\": \"Common\",\n";
+                ss << "\t\"type\": \"" << value << "\"\n";
+            } break;
+        }
+
+        ss << "}";
+        return ss.str();
     }
 };
 
@@ -193,11 +208,11 @@ std::tuple<bool, std::variant<std::monostate, type>> is_type(std::string& value)
 
     if( token[0] == '[' && token[token.length()-1] == ']' ) {
 
-        if( token[1] == '*' && token[2] == ':' ) {
-            std::string type = token.substr(3, token.length()-4);
-            if( first(is_type(type)) ) return { true, type::vector(ptr, type) };
-            else return { false, std::monostate() };
-        }
+        // if( token[1] == '*' && token[2] == ':' ) {
+        //     std::string type = token.substr(3, token.length()-4);
+        //     if( first(is_type(type)) ) return { true, type::vector(ptr, type) };
+        //     else return { false, std::monostate() };
+        // }
 
         std::stringstream ss;
         int j = 1;
@@ -228,7 +243,7 @@ bool is_number(std::string& value) {
     return std::regex_match(value, r);
 }
 
-ParseResults parse(CompilerParams& params, std::vector<std::string> tokens) {
+ParseResults parse(std::vector<std::string>& tokens) {
     ParseResults results = {};
 
     for(int i = 0; i < tokens.size(); i++) {

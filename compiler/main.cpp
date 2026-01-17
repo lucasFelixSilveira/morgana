@@ -52,7 +52,7 @@ main(int argc, char **argv)
     std::vector<std::string> tokens = tokenize(src);
 
     /* Parser phase */
-    ParseResults results = parse(params, tokens);
+    ParseResults results = parse(tokens);
 
     /* Code Generation phase */
     std::string generated = codegen(params, results);

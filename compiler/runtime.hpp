@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <tuple>
 
-#include "codegen.hpp"
+#include "parser.hpp"
 
 namespace fs = std::filesystem;
 
@@ -56,6 +56,31 @@ public:
     }
 
     static std::string json(ParseResults& ast) {
+        std::stringstream ss;
+        ss << "[";
+        for(auto& [key, value] : ast) {
+            ss << "{";
+            ss << "\"kind\": " << key << ",";
+            switch(key) {
 
+                case ParseResultKind::Function: {
+                    auto data = std::get<function>(value);
+                    auto body = parse(data.body);
+
+                    ss << "\"name\": \"" << data.name << "\",";
+                    ss << "\"params\": [";
+
+                    for( auto param : data.argst ) ss << param.json() << ",\n";
+
+                    ss << "],";
+                    ss << "\"body\": " << json(body) << "";
+                } break;
+
+                default: break;
+            }
+            ss << "}";
+        }
+        ss << "]";
+        return ss.str();
     }
 };
