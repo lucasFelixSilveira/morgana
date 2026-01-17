@@ -211,9 +211,9 @@ std::tuple<bool, std::variant<std::monostate, type>> is_type(std::string& value)
     if( token[0] == '[' && token[token.length()-1] == ']' ) {
 
         // if( token[1] == '*' && token[2] == ':' ) {
-        //     std::string type = token.substr(3, token.length()-4);
-        //     if( first(is_type(type)) ) return { true, type::vector(ptr, type) };
-        //     else return { false, std::monostate() };
+            // std::string type = token.substr(3, token.length()-4);
+            // if( first(is_type(type)) ) return { true, type::vector(ptr, type) };
+            // else return { false, std::monostate() };
         // }
 
         std::stringstream ss;
@@ -278,7 +278,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             desconstructor d(identifiers);
             if( next == "@_" ) d.why = desconstructor::reason::that;
-
+            i++;
             results.push_back({ ParseResultKind::Desconstructor, d });
             continue;
         }
@@ -393,7 +393,8 @@ ParseResults parse(std::vector<std::string>& tokens) {
         }
 
         if( is_identifier(token) ) {
-            auto err = [](){ CompilerOutputs::Fatal("Syntax error - a `definition`. `id value ...`"); };
+            const char *x = token.c_str();
+            auto err = [&](){ CompilerOutputs::Fatal("Syntax error - a `definition`. `id value ...`" + std::string(x)); };
             if( next != "=" || (i + 2) >= tokens.size() ) err();
             i += 2;
 

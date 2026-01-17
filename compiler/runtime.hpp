@@ -82,14 +82,13 @@ public:
 
                 case ParseResultKind::Desconstructor: {
                     auto data = std::get<desconstructor>(value);
-                    auto body = parse(data.identifiers);
 
-                    ss << "\"why\": \"" << data.why << "\",";
+                    ss << "\"why\": " << data.why << ",";
                     ss << "\"id\": [";
 
                     bool first = true;
                     for( auto param : data.identifiers ) {
-                        ss << ((first) ? "" : ", ") << "\"" << param << "\"";
+                        ss << ((first) ? "" : ", ") << "{\"string\":\"" << param << "\"}";
                         if( first ) first = !first;
                     }
 
