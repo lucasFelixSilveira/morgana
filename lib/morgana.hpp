@@ -351,9 +351,7 @@ namespace morgana {
     struct expr {
         Storage& storage;
 
-        enum operand {
-            add = 1, sub = 2, mul = 3, div = 4, mod = 5
-        };
+        enum operand { add, sub, mul, div, mod };
 
         std::array<std::tuple<std::string, operand>, 5> op_names = {
             std::tuple<std::string, operand> {"+", operand::add},

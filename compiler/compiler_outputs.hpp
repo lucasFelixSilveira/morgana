@@ -10,6 +10,7 @@
 struct CompilerOutputs {
 public:
     static void Log(std::string log);
+    static void Info(std::string log);
     static void Fatal(std::string log);
 
     static void ClearCurrentLine();
@@ -38,12 +39,21 @@ namespace Colorizer {
 void
 CompilerOutputs::Log(std::string log)
 {
+    ClearCurrentLine();
     std::cout << "\r" << Colorizer::BOLD_GREEN << "[Morgana]" << Colorizer::RESET << ": " << log;
+}
+
+void
+CompilerOutputs::Info(std::string log)
+{
+    ClearCurrentLine();
+    std::cout << "\r" << Colorizer::BOLD_GREEN << "[Morgana] " << Colorizer::BOLD_YELLOW << "[INFO]" << Colorizer::RESET << ": " << log;
 }
 
 void
 CompilerOutputs::Fatal(std::string log)
 {
+    ClearCurrentLine();
     std::cout << "\r" << Colorizer::BOLD_RED << "[Morgana FAIL]" << Colorizer::RESET << ": " << log << std::endl;
     std::exit(-1);
 }
