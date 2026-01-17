@@ -98,13 +98,13 @@ main(int argc, char **argv)
     CompilerOutputs::Log(duration.str());
 
     std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET << "Morgana Object generated "
-              << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " (not compiled yet)";
+              << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " (not compiled yet)" << Colorizer::RESET ;
 
     /* Compile Morgana Assembly to object file using as silently */
-    std::string as = "as " + absPath.string() + " -o " + absPathObj.string() + "";
+    std::string as = "as \"" + absPath.string() + "\" -o \"" + absPathObj.string() + " > /dev/null 2>&1";
     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
-    std::string ld = "ld " + absPathObj.string() + " -o " + absPathExe.string() + "";
+    std::string ld = "ld \"" + absPathObj.string() + "\" -o \"" + absPathExe.string() + "\" > /dev/null 2>&1";
     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -122,7 +122,7 @@ main(int argc, char **argv)
     CompilerOutputs::Log(duration.str());
     std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET << "Object emitted "
               << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " ./target/output "
-              << Colorizer::DARK_GREY << "(.exe)" << std::endl;
+              << Colorizer::DARK_GREY << "(.exe)" << Colorizer::RESET << std::endl;
 
     int success_code = 0;
     return success_code;
