@@ -23,4 +23,10 @@ function SymbolTableManager:lookup(name)
     return nil
 end
 
+function SymbolTableManager:rm(name)
+    for i = #self.scopes, 1, -1 do
+        if self.scopes[i][name] then self.scopes[i][name] = nil end
+    end
+end
+
 return SymbolTableManager

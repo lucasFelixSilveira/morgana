@@ -1,6 +1,13 @@
 i32 main i32 {
     (x, ) @_
-    store x 82
-    _0 = load x
+
+    temp vec i8
+        72 69 76 76 79
+        32 87 79 82 76
+        68 33 10 0 nil
+
+    sample msg = alloc i8*
+    store msg temp
+    _0 = load msg
     ret
 }

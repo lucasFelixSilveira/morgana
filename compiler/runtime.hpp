@@ -5,6 +5,7 @@
 #include <string>
 #include <filesystem>
 #include <tuple>
+#include <variant>
 
 #include "parser.hpp"
 
@@ -106,12 +107,39 @@ public:
                     ss << "\"what\": \"" << data << "\"";
                 } break;
 
+                case ParseResultKind::VectorAllocation: {
+                    auto data = std::get<std::tuple<type, std::vector<int>>>(value);
+
+                    std::stringstream ss1;
+                    for( auto i : std::get<1>(data) ) ss1 << ((ss1.tellp() == 0) ? "" : ", ") << "{ \"value\": " << i << " }";
+
+                    ss << ", ";
+                    ss << "\"type\": " << std::get<0>(data).json() << ",";
+                    ss << "\"values\": [" << ss1.str() << "]";
+                } break;
+
                 case ParseResultKind::Store: {
                     auto data = std::get<store>(value);
 
                     ss << ", ";
                     ss << "\"src\": \"" << data.value << "\",";
                     ss << "\"dest\": \"" << data.identifier << "\"";
+                } break;
+
+                case ParseResultKind::Allocation: {
+                    auto data = std::get<allocation>(value);
+
+                    ss << ", ";
+                    ss << "\"type\": " << data.data.json() << ",";
+                    ss << "\"name\": \"" << data.name << "\"";
+                } break;
+
+                case ParseResultKind::GetPointerElement: {
+                    auto data = std::get<std::tuple<std::string, std::string>>(value);
+
+                    ss << ", ";
+                    ss << "\"src\": \"" << std::get<0>(data) << "\",";
+                    ss << "\"index\": \"" << std::get<1>(data) << "\"";
                 } break;
 
                 default: break;

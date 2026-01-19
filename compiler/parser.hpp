@@ -88,6 +88,7 @@ public:
         ss << "{ ";
         ss << " \"bytes\": " << bytes() << ", ";
         ss << " \"matrix\": " << (matrixPos() + 1) << ", ";
+        ss << " \"ptr\": " << (ptr ? "true" : "false") << ", ";
 
         switch(kind) {
             case Array: {
@@ -421,8 +422,10 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 continue;
             }
 
+            // _1 = getelement msg 2
             if( rhs == "getptrelement" && is_identifier(next) && is_number(tokens[i]) ) {
                 results.push_back({ ParseResultKind::GetPointerElement, std::tuple<std::string, std::string>{next, tokens[i]} });
+
                 i--;
                 continue;
             }
