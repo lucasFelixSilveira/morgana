@@ -7,7 +7,7 @@
 #include <tuple>
 #include <variant>
 
-#include "parser.hpp"
+#include "../parser.hpp"
 
 namespace fs = std::filesystem;
 

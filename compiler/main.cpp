@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "extensors.hpp"
+#include "extensors/manager.hpp"
 #include "parser.hpp"
 #include "tokenizer.hpp"
 #include "codegen.hpp"
