@@ -4,8 +4,47 @@
 #include "libs/linux/include/lua.hpp"
 #include "params.hpp"
 #include "extensors/runtime.hpp"
+#include "parser.hpp"
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <unistd.h>
+#include <vector>
+#include <memory>
+
+struct ASTIterator {
+    ParseResults ast;
+    size_t current_index;
+};
+
+#define JSON_ENCODER(ss, vec, constructor)                                    \
+    {                                                                         \
+        auto build = [&](auto& iter) -> std::string constructor;              \
+        ss << "{ \"data\": [";                                                \
+        bool first = true;                                                    \
+        for( auto iter : vec ) {                                              \
+            ss << ((first) ? "" : ", ") << build(iter) << "";                 \
+            if( first ) first = !first;                                       \
+        };                                                                    \
+        ss << "] }";                                                          \
+    }
+
+std::stack<std::shared_ptr<ASTIterator>> iterators;
+std::shared_ptr<ASTIterator> current_iterator = nullptr;
+
+static void morgana_push_ctx(std::vector<std::string> ctx) {
+    if( current_iterator ) {
+        auto saved_iterator = std::make_shared<ASTIterator>();
+        saved_iterator->ast = current_iterator->ast;
+        saved_iterator->current_index = current_iterator->current_index;
+        iterators.push(saved_iterator);
+    }
+
+    auto new_iterator = std::make_shared<ASTIterator>();
+    new_iterator->ast = parse(ctx);
+    new_iterator->current_index = 0;
+    current_iterator = new_iterator;
+}
 
 static bool file_exists(const std::string& path) {
     return access(path.c_str(), R_OK) == 0;
@@ -21,12 +60,108 @@ static std::string find_lua_module(const std::string& dir, const std::string& mo
     };
 
     for( const auto& candidate : candidates )
-    /* -> */ if( file_exists(candidate) ) return candidate;
+        if( file_exists(candidate) ) return candidate;
 
     return "";
 }
 
-// Função C para morgana.require
+static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
+    lua_newtable(L);
+
+    lua_pushinteger(L, first(node));
+    lua_setfield(L, -2, "kind");
+
+    switch(first(node)) {
+        case ParseResultKind::Function: {
+            auto data = std::get<function>(second(node));
+            std::stringstream ss;
+
+            // append the current iterator on the stack
+            // and then put the function iterator on the
+            // current_iterator global variable
+            morgana_push_ctx(data.body);
+
+            // store the function name on the table
+            // for lua know all the IDs of the function
+            lua_pushstring(L, data.name.c_str());
+            lua_setfield(L, -2, "name");
+
+            // store the function parameters type
+            // using JSON encoder
+            JSON_ENCODER(ss, data.argst, { return iter.json(); });
+            lua_pushstring(L, ss.str().c_str());
+            lua_setfield(L, -2, "params");
+
+            ss.str("");
+            ss.clear();
+        } break;
+
+        case ParseResultKind::Desconstructor: {
+            auto data = std::get<desconstructor>(second(node));
+            std::stringstream ss;
+
+            // store the reason for why the desconstructor
+            // is being used, for the LUA know what desconstructor
+            // structure should be used
+            lua_pushinteger(L, data.why);
+            lua_setfield(L, -2, "why");
+
+            // store the identifiers to the desconstructor fields
+            // in the desconstructor table using JSON encoder
+            JSON_ENCODER(ss, data.identifiers, { return "{\"string\":\"" + iter + "\"}"; })
+            lua_pushstring(L, ss.str().c_str());
+            lua_setfield(L, -2, "identifiers");
+
+            ss.str("");
+            ss.clear();
+        } break;
+
+        default: break;
+    }
+}
+
+static int morgana_next(lua_State* L) {
+    if(! current_iterator || current_iterator->ast.empty() ) {
+        lua_pushnil(L);
+        lua_pushstring(L, "No AST available or empty AST");
+        return 2;
+    }
+
+    if( current_iterator->current_index >= current_iterator->ast.size() ) {
+        if (iterators.empty()) {
+            lua_pushnil(L);
+            lua_pushstring(L, "End of AST");
+            return 2;
+        }
+
+        current_iterator = iterators.top();
+        iterators.pop();
+
+        if(! current_iterator || current_iterator->ast.empty() ) {
+            lua_pushnil(L);
+            lua_pushstring(L, "No AST after restoration");
+            return 2;
+        }
+
+        if( current_iterator->current_index >= current_iterator->ast.size() ) {
+            lua_pushnil(L);
+            lua_pushstring(L, "Restored iterator also finished");
+            return 2;
+        }
+    }
+
+    auto node = current_iterator->ast.at(current_iterator->current_index);
+    current_iterator->current_index++;
+
+    push_ast_node_to_lua(L, node);
+    return 1;
+}
+
+static int morgana_reset(lua_State* L) {
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 static int morgana_require(lua_State* L) {
     const char* modname = luaL_checkstring(L, 1);
 
@@ -59,9 +194,13 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
     }
 
     CompilerOutputs::Info("Extensor found: " + extensorPath);
-    CompilerOutputs::Info("Generating JSON to parse");
+    CompilerOutputs::Info("Generating code via extensor");
 
-    std::string json = "{\"data\": " + Runtime::json(ast) + "}";
+    while (!iterators.empty()) iterators.pop();
+
+    current_iterator = std::make_shared<ASTIterator>();
+    current_iterator->ast = ast;
+    current_iterator->current_index = 0;
 
     lua_State *L = luaL_newstate();
     if (!L) {
@@ -78,8 +217,17 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
 
     lua_newtable(L);
 
+    // Adiciona morgana.require
     lua_pushcfunction(L, morgana_require);
     lua_setfield(L, -2, "require");
+
+    // Adiciona morgana.next
+    lua_pushcfunction(L, morgana_next);
+    lua_setfield(L, -2, "next");
+
+    // Adiciona morgana.reset
+    lua_pushcfunction(L, morgana_reset);
+    lua_setfield(L, -2, "reset");
 
     lua_setglobal(L, "morgana");
 
@@ -105,7 +253,7 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
         return "";
     }
 
-    lua_pushstring(L, json.c_str());
+    lua_pushnil(L);
 
     if( lua_pcall(L, 1, 1, 0) != LUA_OK ) {
         CompilerOutputs::Fatal("Error in codegen: " + std::string(lua_tostring(L, -1)));
@@ -121,6 +269,10 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
 
     std::string result = lua_tostring(L, -1);
     lua_close(L);
+
+    // Limpar após uso
+    current_iterator.reset();
+    while(! iterators.empty() ) iterators.pop();
 
     CompilerOutputs::Info("Code generation completed");
     return result;

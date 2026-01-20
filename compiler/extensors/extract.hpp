@@ -4,8 +4,16 @@
 #include <string>
 
 #include "../toml/reader.hpp"
-#include "git.hpp"
 
+static bool isRepositoryURL(const std::string& input) {
+    const std::vector<std::string> protocols = {
+        "http://", "https://", "git://", "ssh://", "git@"
+    };
+
+    for( const auto& protocol : protocols )
+    /* -> */ if (input.find(protocol) == 0) return true;
+    return false;
+}
 std::vector<std::string> extractRepositoryURLs(const std::string& workspace) {
     TOMLReader reader("morgana", "target.toml");
     TOMLReader::Values data = reader.get({"extensors", "repositories"});
@@ -19,7 +27,7 @@ std::vector<std::string> extractRepositoryURLs(const std::string& workspace) {
     std::vector<std::string> repositories = reader.check<std::vector<std::string>>("repositories", data);
 
     for( const auto& url : repositories ) {
-        if(! url.empty() && GitManager::isRepositoryURL(url) ) {
+        if(! url.empty() && isRepositoryURL(url) ) {
             CompilerOutputs::Info("Discovered repository: " + url);
             repositories.push_back(url);
         }
