@@ -5,7 +5,6 @@
 #include "params.hpp"
 #include "extensors/runtime.hpp"
 #include "parser.hpp"
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>

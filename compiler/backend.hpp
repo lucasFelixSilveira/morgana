@@ -13,6 +13,37 @@
 #include "compiler_outputs.hpp"
 #include "params.hpp"
 
+// Versão melhorada - mais segura e eficiente
+#ifdef _WIN32
+#include <windows.h>
+#define CAND(x, y)                                                                                     \
+    ([]() -> bool {                                                                                    \
+        char* path = std::getenv("PATH");                                                              \
+        if(! path ) return false;                                                                      \
+        std::string path_str = path;                                                                   \
+        size_t start = 0, end;                                                                         \
+        while((end = path_str.find(';', start)) != std::string::npos) {                                \
+            std::string dir = path_str.substr(start, end - start);                                     \
+            std::string full_path = dir + "\\" + #x + ".exe";                                          \
+            DWORD attrs = GetFileAttributesA(full_path.c_str());                                       \
+            if( attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY) ) return true; \
+            start = end + 1;                                                                           \
+        }                                                                                              \
+        return false;                                                                                  \
+    }()) && (y)
+
+#else
+#include <unistd.h>
+#include <sys/stat.h>
+#define CAND(x, y)                                                                                     \
+    ([]() -> bool {                                                                                    \
+        std::string cmd = "command -v " + std::string(#x);                                             \
+        return std::system((cmd + " > /dev/null 2>&1").c_str()) == 0;                                  \
+    }()) && (y)
+#endif
+
+const bool end = true;
+
 struct Backend {
     static void assemble(CompilerParams& params, std::string s, std::string o, std::string exe) {
         std::stringstream breaker;
@@ -30,13 +61,7 @@ struct Backend {
         }
 
         if( params.target == "xtensa" ) {
-            bool xtensa = false;
-            #ifdef _WIN32
-                xtensa = std::system("where idf.py >nul 2>nul") == 0;
-            #else
-                xtensa = std::system("which idf.py > /dev/null 2>&1") == 0;
-            #endif
-
+            bool xtensa = CAND("idf.py", end);
             if(! xtensa ) CompilerOutputs::Fatal("Failed to find xtensa toolchain (idf.py). Install it and try again." + breaker.str() + " https://docs.espressif.com/projects/esp-idf/");
 
             std::filesystem::path absPath = std::filesystem::absolute("target/xtensa");
@@ -83,6 +108,29 @@ struct Backend {
             // Build xtensa with idf.py
             std::string build = "cd target/xtensa && idf.py build flash" + std::string(params.verbose ? "" : " > /dev/null 2>&1") + " && cd ../../";
             if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build xtensa");
+            return;
+        }
+
+        if( params.target == "avr" ) {
+            bool avr = CAND("avr-gcc", CAND("avr-objcopy", CAND("avrdude", CAND("avr-size", end))));
+            if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " hhttps://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
+
+            std::string build = "avr-gcc -mmcu=" + params.mcu + " -Os -DF_CPU=" + std::to_string(params.frequency) + " -Os -c target/output.s -o target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+            if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build avr");
+
+            std::string linking = "avr-gcc -mmcu=" + params.mcu + " -Os -o target/output target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+            if( std::system(linking.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link avr");
+
+            std::string copy = "avr-objcopy -O ihex target/output target/output.hex" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+            if( std::system(copy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to copy avr");
+
+            if( params.verbose ) {
+                std::string verify = "avr-size --format=avr --mcu=" + params.mcu + " target/output";
+                if( std::system(verify.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to verify avr");
+            }
+
+            std::string flash = "avrdude -c " + params.programmer + " -p " + params.mcu + " -P " + params.port + " -b 115200 -U flash:w:target/output.hex:i" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+            if( std::system(flash.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to flash avr");
             return;
         }
 

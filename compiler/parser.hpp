@@ -1,14 +1,12 @@
 #pragma once
 
 #include "compiler_outputs.hpp"
-#include "params.hpp"
 #include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <linux/limits.h>
 #include <regex>
 #include <sstream>
-#include <stack>
 #include <string>
 #include <tuple>
 #include <variant>
