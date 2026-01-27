@@ -1,4 +1,5 @@
-i32 main i32 {
-    (x, ) @_
-    x = alloc i32
+pin = gpio 2
+
+i8 app_main {
+    call out(pin)
 }

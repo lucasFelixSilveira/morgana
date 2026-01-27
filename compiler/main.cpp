@@ -18,6 +18,8 @@
 #include "tokenizer.hpp"
 #include "codegen.hpp"
 
+CompilerParams params;
+
 #ifdef _WIN32
 # include <direct.h>
 # define MKDIR(dir) _mkdir(dir)
@@ -34,11 +36,9 @@ main(int argc, char **argv)
     int min_arguments = 2;
     if( argc < min_arguments ) CompilerOutputs::Fatal("You need enter with a action. If you don't know the acceptable actions, use: help.");
 
-    CompilerParams params = CompilerParams::format(argc, argv);
+    params = CompilerParams::format(argc, argv);
     if( params.command == "install" ) ExtensorManager::install(argv);
     if( params.command != "build" ) return 0;
-
-    CompilerOutputs::Log("Starting the compilation!");
 
     /* checks if the file is accessible */
     std::ifstream file(params.main, std::ios::binary | std::ios::ate);

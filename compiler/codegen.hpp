@@ -120,25 +120,25 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             ss.clear();
         } break;
 
-        case ParseResultKind::Store: {
-            auto data = std::get<store>(second(node));
+        // case ParseResultKind::Store: {
+        //     auto data = std::get<store>(second(node));
 
-            // store the identifier where the storage value
-            // will be stored
-            lua_pushstring(L, data.identifier.c_str());
-            lua_setfield(L, -2, "identifier");
+        //     // store the identifier where the storage value
+        //     // will be stored
+        //     lua_pushstring(L, data.identifier.c_str());
+        //     lua_setfield(L, -2, "identifier");
 
-            // store the data value who will be stored as
-            // a string.
-            lua_pushstring(L, data.value.c_str());
-            lua_setfield(L, -2, "value");
+        //     // store the data value who will be stored as
+        //     // a string.
+        //     lua_pushstring(L, data.value.c_str());
+        //     lua_setfield(L, -2, "value");
 
-            // store the type of the data value using
-            // the LUAT `enum` type
-            LUAT type = is_number(data.value) ? LUA_INTEGER_STRING : LUA_TEXT_STRING;
-            lua_pushinteger(L, type);
-            lua_setfield(L, -2, "type");
-        } break;
+        //     // store the type of the data value using
+        //     // the LUAT `enum` type
+        //     LUAT type = is_number(data.value) ? LUA_INTEGER_STRING : LUA_TEXT_STRING;
+        //     lua_pushinteger(L, type);
+        //     lua_setfield(L, -2, "type");
+        // } break;
 
         default: break;
     }

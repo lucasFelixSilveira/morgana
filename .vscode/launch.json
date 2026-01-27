@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/morgana",
-      "args": ["build"],
+      "args": ["build", "-o", "xtensa"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
