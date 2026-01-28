@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <linux/limits.h>
 #include <sstream>
 #include <string>
@@ -36,7 +37,9 @@ enum ParseResultKind {
 };
 
 
-using symbol_data = std::variant<morgana_types, function_data>;
+enum symbolKind { GPIO_PIN };
+
+using symbol_data = std::variant<morgana_types, morgana_subtypes, function_data, std::tuple<std::string, int>>;
 using symbols = std::unordered_map<std::string, symbol_data>;
 std::stack<symbols> symstack;
 
@@ -45,7 +48,50 @@ symbols global = {
     {"i16", morgana_types { .value = type::common(false, "i16"), .regex = "[0-9]+" }},
     {"i32", morgana_types { .value = type::common(false, "i32"), .regex = "[0-9]+" }},
     {"i64", morgana_types { .value = type::common(false, "i64"), .regex = "[0-9]+" }},
+
+    {"gpio_pin", morgana_subtypes { .instruction = symbolKind::GPIO_PIN, .identifier = "gpio_pin", .real_one = type::common(false, "i16") }},
 };
+
+using validation = std::tuple<bool,symbol_data>;
+validation check_valid(std::string type, std::string value) {
+    symbol_data data = global.at(type);
+    if( std::holds_alternative<morgana_types>(data) ) {
+        morgana_types t = std::get<morgana_types>(data);
+
+        if( std::regex_match(value, std::regex(t.regex)) ) return { true, data };
+
+        if( is_identifier(value) ) {
+            if( global.count(value) == 0 ) return { false, data };
+            symbol_data data = global.at(value);
+
+            if( std::holds_alternative<std::tuple<std::string, int>>(data) ) {
+                auto [what, number] = std::get<std::tuple<std::string, int>>(data);
+                return { what == type, data };
+            }
+
+            return { false, data };
+        }
+    }
+
+    if( std::holds_alternative<morgana_subtypes>(data) ) {
+        morgana_subtypes t = std::get<morgana_subtypes>(data);
+
+        if( is_identifier(value) ) {
+            if( global.count(value) == 0 ) return { false, data };
+            symbol_data data = global.at(value);
+
+            if( std::holds_alternative<std::tuple<std::string, int>>(data) ) {
+                auto [what, number] = std::get<std::tuple<std::string, int>>(data);
+                return { what == t.identifier, data };
+            }
+
+            return { false, data };
+        }
+    }
+
+    return { false, data };
+}
+
 
 using ParseResult = std::tuple<ParseResultKind, std::variant<
     desconstructor,
@@ -63,8 +109,18 @@ std::string getnext(std::vector<std::string>& tokens, int& i) {
     return tokens[i++];
 }
 
+void sys_err(std::string instruction, std::string value, symbol_data data, bool cbid = true) {
+    if( std::holds_alternative<morgana_types>(data) ) {
+        auto type = std::get<morgana_types>(data);
+        CompilerOutputs::Fatal("Error When you use `" + instruction + "` the value expect need match " + type.regex + (cbid ? " or be a identifier" : "") + " but is " + value);
+    }
+};
+
+bool fparse = true;
 ParseResults parse(std::vector<std::string>& tokens) {
     bool mcu = (params.target == "xtensa" ? true : (params.target == "avr"));
+
+    fparse = false;
     ParseResults results = {};
 
     for( int i = 0; i < tokens.size(); i++ ) {
@@ -105,20 +161,15 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 }
 
                 if( global.count(name) == 0 ) CompilerOutputs::Fatal("Invalid symbol: " + name);
-                symbol_data data = global[name];
+                symbol_data data = global.at(name);
 
                 if(! std::holds_alternative<function_data>(data) ) CompilerOutputs::Fatal("Invalid function: " + name);
                 function_data func_info = std::get<function_data>(data);
 
                 j = 0;
                 for( std::string& type : func_info.types ) {
-                    symbol_data data = global[type];
-                    if( std::holds_alternative<morgana_types>(data) ) {
-                        morgana_types t = std::get<morgana_types>(data);
-                        if(! std::regex_match(args[j++], std::regex(t.regex)) ) {
-                            CompilerOutputs::Fatal("When you use `call` for " + name + ", your " + std::to_string(j) + " argument is not of type `" + type + "`. The value should match the regex `" + t.regex + "` and you did enter `" + args[j-1] + "`");
-                        }
-                    }
+                    validation data;
+                    if( data = check_valid(type, args[j++]); !first(data) ) sys_err("call", args[j - 1], second(data));
                 }
 
                 call c(name, args);
@@ -155,14 +206,17 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     }
                 }
 
-                std::vector<type> types;
+                std::vector<morgana_paramters> types;
                 for( std::string& arg : args) {
                     if( global.count(arg) == 0 ) CompilerOutputs::Fatal("Invalid symbol: " + arg);
 
                     symbol_data data = global[arg];
-                    if(! std::holds_alternative<morgana_types>(data) ) CompilerOutputs::Fatal("Invalid type: " + arg);
+                    if( std::holds_alternative<morgana_types>(data) ) goto function_ignore_ifs;
+                    if( std::holds_alternative<morgana_subtypes>(data) ) goto function_ignore_ifs;
 
-                    types.push_back(std::get<morgana_types>(data).value);
+                    function_ignore_ifs: {};
+                    if( std::holds_alternative<morgana_types>(data) ) types.push_back(std::get<morgana_types>(data));
+                    if( std::holds_alternative<morgana_subtypes>(data) ) types.push_back(std::get<morgana_subtypes>(data));
                 }
 
                 std::vector<std::string> body;
@@ -194,6 +248,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         std::string pin = getnext(tokens, i);
                         if(! is_number(pin) ) CompilerOutputs::Fatal("Enter with a valid GPIO. `id = gpio 12`");
 
+                        global.insert({ token, std::make_tuple("gpio_pin", std::atoi(pin.c_str())) });
                         results.push_back({ ParseResultKind::GPIO, declaration<gpio> { token, std::atoi(pin.c_str()) } });
 
                         i--;
@@ -221,20 +276,15 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         }
 
                         if( global.count(name) == 0 ) CompilerOutputs::Fatal("Invalid symbol: " + name);
-                        symbol_data data = global[name];
+                        symbol_data data = global.at(name);
 
                         if(! std::holds_alternative<function_data>(data) ) CompilerOutputs::Fatal("Invalid function: " + name);
                         function_data func_info = std::get<function_data>(data);
 
                         j = 0;
                         for( std::string& type : func_info.types ) {
-                            symbol_data data = global[type];
-                            if( std::holds_alternative<morgana_types>(data) ) {
-                                morgana_types t = std::get<morgana_types>(data);
-                                if(! std::regex_match(args[j++], std::regex(t.regex)) ) {
-                                    CompilerOutputs::Fatal("When you use `call` for " + name + ", your " + std::to_string(j) + " argument is not of type `" + type + "`. The value should match the regex `" + t.regex + "` and you did enter `" + args[j-1] + "`");
-                                }
-                            }
+                            validation data;
+                            if( data = check_valid(type, args[j++]); !first(data) ) sys_err("call", args[j - 1], second(data));
                         }
 
                         i--;

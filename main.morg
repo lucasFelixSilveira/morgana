@@ -1,7 +1,4 @@
-pin = gpio 2
+p2 = gpio 2
 
-i8 pussy(i16) {
-}
-
-i32 app_main() {
+i32 main(i32) {
 }

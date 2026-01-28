@@ -1,4 +1,5 @@
 #pragma once
+#include "compiler_outputs.hpp"
 #include "parser.hpp"
 #include <iostream>
 #include <unordered_map>
@@ -6,6 +7,7 @@
 
 #include "parser/declaration.hpp"
 #include "parser/function.hpp"
+#include "parser/symbols.hpp"
 
 enum ParseNodeKind {
     MCU,
@@ -34,7 +36,8 @@ void debug_print(ParseResults results) {
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "body" << Colorizer::RESET << ": std::vector<std::string>(" << data.body.size() << ")\n";
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "arguments" << Colorizer::RESET << ": std::vector<type>(" << data.argst.size() << ")\n";
                 for( const auto& argt : data.argst ) {
-                    std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::YELLOW << argt.value << "\n";
+                    if( std::holds_alternative<morgana_types>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::YELLOW << std::get<morgana_types>(argt).value.value << "\n";
+                    if( std::holds_alternative<morgana_subtypes>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::BOLD_CYAN << std::get<morgana_subtypes>(argt).identifier << "\n";
                 }
                 std::cout << "\n";
             } break;

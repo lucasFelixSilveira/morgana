@@ -5,9 +5,13 @@
 #include "params.hpp"
 #include "extensors/runtime.hpp"
 #include "parser.hpp"
+#include "parser/declaration.hpp"
+#include "parser/symbols.hpp"
+#include "parser/mcu/gpio.hpp"
 #include <sstream>
 #include <string>
 #include <unistd.h>
+#include <variant>
 #include <vector>
 #include <memory>
 
@@ -92,7 +96,11 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
             // store the function parameters type
             // using JSON encoder
-            JSON_ENCODER(ss, data.argst, { return iter.json(); });
+            JSON_ENCODER(ss, data.argst, {
+                if( std::holds_alternative<morgana_types>(iter) )return std::get<morgana_types>(iter).value.json();
+                if( std::holds_alternative<morgana_subtypes>(iter) )return std::get<morgana_subtypes>(iter).real_one.json();
+                return std::string();
+            });
             lua_pushstring(L, ss.str().c_str());
             lua_setfield(L, -2, "params");
 
@@ -100,44 +108,35 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             ss.clear();
         } break;
 
-        case ParseResultKind::Desconstructor: {
-            auto data = std::get<desconstructor>(second(node));
+        case ParseResultKind::GPIO: {
+            auto data = std::get<declaration<gpio>>(second(node));
             std::stringstream ss;
 
-            // store the reason for why the desconstructor
-            // is being used, for the LUA know what desconstructor
-            // structure should be used
-            lua_pushinteger(L, data.why);
-            lua_setfield(L, -2, "why");
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
 
-            // store the identifiers to the desconstructor fields
-            // in the desconstructor table using JSON encoder
-            JSON_ENCODER(ss, data.identifiers, { return "{\"string\":\"" + iter + "\"}"; })
-            lua_pushstring(L, ss.str().c_str());
-            lua_setfield(L, -2, "identifiers");
-
-            ss.str("");
-            ss.clear();
+            lua_pushinteger(L, second(data));
+            lua_setfield(L, -2, "pin");
         } break;
 
-        // case ParseResultKind::Store: {
-        //     auto data = std::get<store>(second(node));
+        // case ParseResultKind::Desconstructor: {
+        //     auto data = std::get<desconstructor>(second(node));
+        //     std::stringstream ss;
 
-        //     // store the identifier where the storage value
-        //     // will be stored
-        //     lua_pushstring(L, data.identifier.c_str());
-        //     lua_setfield(L, -2, "identifier");
+        //     // store the reason for why the desconstructor
+        //     // is being used, for the LUA know what desconstructor
+        //     // structure should be used
+        //     lua_pushinteger(L, data.why);
+        //     lua_setfield(L, -2, "why");
 
-        //     // store the data value who will be stored as
-        //     // a string.
-        //     lua_pushstring(L, data.value.c_str());
-        //     lua_setfield(L, -2, "value");
+        //     // store the identifiers to the desconstructor fields
+        //     // in the desconstructor table using JSON encoder
+        //     JSON_ENCODER(ss, data.identifiers, { return "{\"string\":\"" + iter + "\"}"; })
+        //     lua_pushstring(L, ss.str().c_str());
+        //     lua_setfield(L, -2, "identifiers");
 
-        //     // store the type of the data value using
-        //     // the LUAT `enum` type
-        //     LUAT type = is_number(data.value) ? LUA_INTEGER_STRING : LUA_TEXT_STRING;
-        //     lua_pushinteger(L, type);
-        //     lua_setfield(L, -2, "type");
+        //     ss.str("");
+        //     ss.clear();
         // } break;
 
         default: break;
