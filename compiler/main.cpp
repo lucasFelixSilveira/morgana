@@ -17,6 +17,7 @@
 #include "parser.hpp"
 #include "tokenizer.hpp"
 #include "codegen.hpp"
+#include "debug.hpp"
 
 CompilerParams params;
 
@@ -56,6 +57,9 @@ main(int argc, char **argv)
 
     /* Parser phase */
     ParseResults results = parse(tokens);
+    #if MORGANA_DEBUG
+        debug_print(results);
+    #endif
 
     /* Code Generation phase */
     std::string generated = codegen(params, results);

@@ -1,5 +1,7 @@
 pin = gpio 2
 
-i8 app_main {
-    call out(pin)
+i8 pussy(i16) {
+}
+
+i32 app_main() {
 }

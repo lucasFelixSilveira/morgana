@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <variant>
 
@@ -70,8 +72,13 @@ std::tuple<bool, std::variant<std::monostate, type>> is_type(std::string& value)
 
 bool is_identifier(std::string& value) {
     if( first(is_type(value)) ) return false;
+    std::stringstream ss;
+    const char *c = value.c_str();
+    int i = 0; while( c[i] != '(' && c[i] != 0 ) ss << c[i++];
+
+
     std::regex r("^[a-zA-Z_][a-zA-Z0-9_]*$");
-    return std::regex_match(value, r);
+    return std::regex_match(ss.str(), r);
 }
 
 bool is_number(std::string& value) {
