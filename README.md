@@ -42,6 +42,26 @@ Extensors are extensions to Morgana codegen, which allow you to add your custom 
 $ morgana build -o x86_64-optimized
 ```
 
+# Examples
+
+### Morgana LED Flip Flop
+```morgana
+p2 = gpio 2
+p3 = gpio 3
+i32 main() { loop {
+    turn p2 off
+    turn p3 on
+    waitms 2000
+    turn p2 on
+    turn p3 off
+    waitms 2000
+} }
+```
+
+[![Watch the video](https://img.youtube.com/vi/N7LiUWXcLLY/maxresdefault.jpg)](https://youtu.be/N7LiUWXcLLY)
+
+### [Click to watch - Morgana FLIP FLOP in AVR platform](https://youtu.be/N7LiUWXcLLY)
+
 ## 🔥 LLVM vs Morgana
   
 - **LLVM IR**
