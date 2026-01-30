@@ -8,6 +8,7 @@
 #include "parser/declaration.hpp"
 #include "parser/symbols.hpp"
 #include "parser/mcu/gpio.hpp"
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -108,14 +109,27 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             ss.clear();
         } break;
 
-        case ParseResultKind::GPIO: {
-            auto data = std::get<declaration<gpio>>(second(node));
+        case ParseResultKind::Loop: {
+            auto data = std::get<loop>(second(node));
 
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
+            // append the current iterator on the stack
+            // and then put the loop iterator on the
+            // current_iterator global variable
+            morgana_push_ctx(data.body);
+        } break;
 
-            lua_pushinteger(L, second(data));
-            lua_setfield(L, -2, "pin");
+        case ParseResultKind::Wait: {
+            auto data = std::get<int>(second(node));
+
+            lua_pushinteger(L, (data * 1000));
+            lua_setfield(L, -2, "ms");
+        } break;
+
+        case ParseResultKind::WaitMS: {
+            auto data = std::get<int>(second(node));
+
+            lua_pushinteger(L, data);
+            lua_setfield(L, -2, "ms");
         } break;
 
         case ParseResultKind::Turn: {

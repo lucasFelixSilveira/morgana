@@ -1,4 +1,12 @@
 p2 = gpio 2
+p3 = gpio 3
 i32 main() {
-    turn p2 on
+    loop {
+        turn p2 off
+        turn p3 on
+        waitms 2000
+        turn p2 on
+        turn p3 off
+        waitms 2000
+    }
 }

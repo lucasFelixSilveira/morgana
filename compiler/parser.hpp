@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdlib>
 #include <linux/limits.h>
 #include <optional>
 #include <sstream>
@@ -16,7 +17,7 @@
 #include "compiler_outputs.hpp"
 #include "parser/make_it_integer.hpp"
 #include "parser/checkout.hpp"
-#include "parser/desconstructor.hpp"
+#include "parser/loop.hpp"
 #include "parser/function.hpp"
 #include "parser/call.hpp"
 #include "parser/keywords.hpp"
@@ -34,10 +35,13 @@ enum ParseResultKind {
     Function,
     Ret,
     Call,
+    Loop,
+    Wait,
+    WaitMS,
 
     // MCUs nodes
-    GPIO,
-    Turn
+    GPIO = 1001,
+    Turn = 1002
 };
 
 enum symbolKind { GPIO_PIN };
@@ -170,11 +174,12 @@ validation check_valid(const std::string& type, const std::string& value) {
 }
 
 using ParseResult = std::tuple<ParseResultKind, std::variant<
-    desconstructor,
+    int,
     function,
     ret,
     call,
     turn,
+    loop,
     declaration<gpio>,
     declaration<call>
 >>;
@@ -182,12 +187,12 @@ using ParseResult = std::tuple<ParseResultKind, std::variant<
 using ParseResults = std::vector<ParseResult>;
 
 std::string getnext(std::vector<std::string>& tokens, int& i) {
-    if (i >= tokens.size()) return "";
+    if( i >= tokens.size() ) return "";
     return tokens[i++];
 }
 
 void sys_err(const std::string& instruction, const std::string& value, const symbol_data& data, bool cbid = true) {
-    if (std::holds_alternative<morgana_types>(data)) {
+    if( std::holds_alternative<morgana_types>(data) ) {
         auto type = std::get<morgana_types>(data);
         CompilerOutputs::Fatal("Error When you use `" + instruction + "` the value expect need match " + type.regex + (cbid ? " or be a identifier" : "") + " but is " + value);
     }
@@ -213,6 +218,37 @@ ParseResults parse(std::vector<std::string>& tokens) {
             case RET_KEYWORD: {
                 if(! in_function ) CompilerOutputs::Fatal("Return statement outside of function");
                 results.push_back({ ParseResultKind::Ret, ret{} });
+            } continue;
+
+            case LOOP_KEYWORD: {
+                i++;
+                if( getnext(tokens, i) != "{" ) CompilerOutputs::Fatal("Loop statement needs a code-block");
+
+                std::vector<std::string> body;
+                for(; i < tokens.size(); i++ ) {
+                    body.push_back(tokens[i]);
+                    if( tokens[i] == "}" ) break;
+                }
+
+                if( i >= tokens.size() ) CompilerOutputs::Fatal("Bad loop instruction");
+
+                results.push_back({ ParseResultKind::Loop, loop{ .body = body } });
+            } continue;
+
+            case WAIT_KEYWORD: {
+                i++;
+                std::string ms = getnext(tokens, i);
+                if(! is_number(ms) ) CompilerOutputs::Fatal("Wait statement needs a number (ms)");
+                results.push_back({ ParseResultKind::Wait, atoi(ms.c_str()) });
+                i--;
+            } continue;
+
+            case WAITMS_KEYWORD: {
+                i++;
+                std::string ms = getnext(tokens, i);
+                if(! is_number(ms) ) CompilerOutputs::Fatal("Wait statement needs a number (ms)");
+                results.push_back({ ParseResultKind::WaitMS, atoi(ms.c_str()) });
+                i--;
             } continue;
 
             case CALL_KEYWORD: {
@@ -330,7 +366,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         if( opt_param_type ) symbol_table.insert(arg, *opt_param_type);
                     }
 
-                    while(tokens[i] != "}") {
+                    while(true) {
                         if( tokens[i] == "{" ) into++;
                         else if( tokens[i] == "}" && into == 0 ) break;
                         else if( tokens[i] == "}" ) into--;
