@@ -110,7 +110,6 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
         case ParseResultKind::GPIO: {
             auto data = std::get<declaration<gpio>>(second(node));
-            std::stringstream ss;
 
             lua_pushstring(L, first(data).c_str());
             lua_setfield(L, -2, "identifier");
@@ -119,25 +118,15 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             lua_setfield(L, -2, "pin");
         } break;
 
-        // case ParseResultKind::Desconstructor: {
-        //     auto data = std::get<desconstructor>(second(node));
-        //     std::stringstream ss;
+        case ParseResultKind::Turn: {
+            auto data = std::get<turn>(second(node));
 
-        //     // store the reason for why the desconstructor
-        //     // is being used, for the LUA know what desconstructor
-        //     // structure should be used
-        //     lua_pushinteger(L, data.why);
-        //     lua_setfield(L, -2, "why");
+            lua_pushinteger(L, data.pin);
+            lua_setfield(L, -2, "pin");
 
-        //     // store the identifiers to the desconstructor fields
-        //     // in the desconstructor table using JSON encoder
-        //     JSON_ENCODER(ss, data.identifiers, { return "{\"string\":\"" + iter + "\"}"; })
-        //     lua_pushstring(L, ss.str().c_str());
-        //     lua_setfield(L, -2, "identifiers");
-
-        //     ss.str("");
-        //     ss.clear();
-        // } break;
+            lua_pushboolean(L, data.toggle);
+            lua_setfield(L, -2, "toggle");
+        } break;
 
         default: break;
     }

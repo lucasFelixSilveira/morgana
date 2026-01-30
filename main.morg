@@ -1,4 +1,4 @@
 p2 = gpio 2
-
-i32 main(i32) {
+i32 main() {
+    turn p2 on
 }

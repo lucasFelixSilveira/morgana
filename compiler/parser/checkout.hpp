@@ -70,7 +70,7 @@ std::tuple<bool, std::variant<std::monostate, type>> is_type(std::string& value)
     return { false, std::monostate() };
 }
 
-bool is_identifier(std::string& value) {
+bool is_identifier(std::string value) {
     if( first(is_type(value)) ) return false;
     std::stringstream ss;
     const char *c = value.c_str();

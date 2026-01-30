@@ -8,6 +8,7 @@
 #include "parser/declaration.hpp"
 #include "parser/function.hpp"
 #include "parser/symbols.hpp"
+#include "parser/turn.hpp"
 
 enum ParseNodeKind {
     MCU,
@@ -20,6 +21,7 @@ std::unordered_map<ParseResultKind, std::tuple<ParseNodeKind, std::string>> toke
     { ParseResultKind::Call, std::make_tuple(Common, "Call") },
     { ParseResultKind::Ret, std::make_tuple(Common, "Ret") },
     { ParseResultKind::GPIO, std::make_tuple(MCU, "GPIO") },
+    { ParseResultKind::Turn, std::make_tuple(MCU, "Turn") },
 };
 
 void debug_print(ParseResults results) {
@@ -49,6 +51,14 @@ void debug_print(ParseResults results) {
 
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "function" << Colorizer::RESET << ": " << data.func << "\n";
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "arguments" << Colorizer::RESET << ": std::vector<std::string>(" << data.args.size() << ")\n";
+                std::cout << "\n";
+            } break;
+
+            case ParseResultKind::Turn: {
+                turn data = std::get<turn>(second(token));
+
+                std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "pin" << Colorizer::RESET << ": " << data.pin << "\n";
+                std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "toggle" << Colorizer::RESET << ": " << data.toggle << "\n";
                 std::cout << "\n";
             } break;
 
