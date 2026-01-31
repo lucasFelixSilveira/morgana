@@ -1,4 +1,6 @@
 #pragma once
-#include <memory>
-
 using gpio = int;
+
+bool is_digital(int pin) {
+    return true;
+}

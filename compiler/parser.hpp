@@ -15,6 +15,7 @@
 
 #include "main.hpp"
 #include "compiler_outputs.hpp"
+#include "parser/comp.hpp"
 #include "parser/make_it_integer.hpp"
 #include "parser/checkout.hpp"
 #include "parser/loop.hpp"
@@ -23,6 +24,7 @@
 #include "parser/keywords.hpp"
 #include "parser/turn.hpp"
 #include "parser/declaration.hpp"
+#include "parser/mcu/read.hpp"
 #include "parser/mcu/gpio.hpp"
 #include "parser/symbols.hpp"
 #include "parser/type.hpp"
@@ -33,15 +35,20 @@ enum ParseResultKind {
     // Functions nodes
     Desconstructor,
     Function,
+    Alloc,
     Ret,
     Call,
     Loop,
     Wait,
     WaitMS,
+    BranchNotEqualZero,
+    Branch,
+    Label,
 
     // MCUs nodes
     GPIO = 1001,
-    Turn = 1002
+    Turn = 1002,
+    Read = 1003,
 };
 
 enum symbolKind { GPIO_PIN };
@@ -174,14 +181,18 @@ validation check_valid(const std::string& type, const std::string& value) {
 }
 
 using ParseResult = std::tuple<ParseResultKind, std::variant<
+    std::string,
     int,
     function,
     ret,
     call,
     turn,
     loop,
+    brnez,
     declaration<gpio>,
-    declaration<call>
+    declaration<call>,
+    declaration<mcu_read>,
+    declaration<symbol_data>
 >>;
 
 using ParseResults = std::vector<ParseResult>;
@@ -215,6 +226,12 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
         auto checkout = make_it_integer(token);
         switch(checkout) {
+            case DEFINE_LABEL: {
+                std::string label = token.substr(2, token.size() - 4);
+                if(! is_identifier(label) ) CompilerOutputs::Fatal("Label statement needs a identifier");
+                results.push_back({ ParseResultKind::Label, label });
+            } continue;
+
             case RET_KEYWORD: {
                 if(! in_function ) CompilerOutputs::Fatal("Return statement outside of function");
                 results.push_back({ ParseResultKind::Ret, ret{} });
@@ -235,19 +252,38 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 results.push_back({ ParseResultKind::Loop, loop{ .body = body } });
             } continue;
 
-            case WAIT_KEYWORD: {
+            case WAIT_KEYWORD:
+            case WAITMS_KEYWORD: {
                 i++;
-                std::string ms = getnext(tokens, i);
-                if(! is_number(ms) ) CompilerOutputs::Fatal("Wait statement needs a number (ms)");
-                results.push_back({ ParseResultKind::Wait, atoi(ms.c_str()) });
+                std::string number = getnext(tokens, i);
+                if(! is_number(number) ) CompilerOutputs::Fatal("Wait statement needs a numeric complement");
+                results.push_back({
+                    (checkout == WAIT_KEYWORD ? ParseResultKind::Wait : ParseResultKind::WaitMS),
+                    atoi(number.c_str())
+                });
                 i--;
             } continue;
 
-            case WAITMS_KEYWORD: {
+            case BRANCH_NOT_EQUAL_ZERO_KEYWORD: {
                 i++;
-                std::string ms = getnext(tokens, i);
-                if(! is_number(ms) ) CompilerOutputs::Fatal("Wait statement needs a number (ms)");
-                results.push_back({ ParseResultKind::WaitMS, atoi(ms.c_str()) });
+                std::string identifier = getnext(tokens, i);
+                if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Branch not equal zero statement needs an identifier");
+
+                std::string label = getnext(tokens, i);
+                if(! is_identifier(label) ) CompilerOutputs::Fatal("Branch not equal zero statement also needs an identifier on the second argument");
+
+                results.push_back({
+                    ParseResultKind::BranchNotEqualZero,
+                    brnez { identifier, label }
+                });
+                i--;
+            } continue;
+
+            case BRANCH_KEYWORD: {
+                i++;
+                std::string label = getnext(tokens, i);
+                if(! is_identifier(label) ) CompilerOutputs::Fatal("Label statement needs an identifier");
+                results.push_back({ ParseResultKind::Branch, label });
                 i--;
             } continue;
 
@@ -388,16 +424,49 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
                     switch (checkout) {
                         case GPIO_INSTRUCTION: {
-                            if (!mcu) CompilerOutputs::Fatal("GPIO instructions are only available for MCUs");
+                            if(! mcu ) CompilerOutputs::Fatal("GPIO instructions are only available for MCUs");
 
                             std::string pin = getnext(tokens, i);
-                            if (!is_number(pin)) CompilerOutputs::Fatal("Enter with a valid GPIO. `id = gpio 12`");
+                            if(! is_number(pin) ) CompilerOutputs::Fatal("Enter with a valid GPIO. `id = gpio 12`");
 
-                            if (!symbol_table.insert(token, std::make_tuple("gpio_pin", std::atoi(pin.c_str())))) {
-                                CompilerOutputs::Fatal("Symbol " + token + " already defined in this scope");
-                            }
+                            if(! symbol_table.insert(token, std::make_tuple("gpio_pin", std::atoi(pin.c_str()))) ) CompilerOutputs::Fatal("Symbol " + token + " already defined in this scope");
 
                             results.push_back({ ParseResultKind::GPIO, declaration<gpio>{ token, std::atoi(pin.c_str()) } });
+                            i--;
+                        } continue;
+
+                        case READ_INSTRUCTION: {
+                            if(! mcu ) CompilerOutputs::Fatal("Digital read instructions are only available for MCUs");
+
+                            std::string identifier = getnext(tokens, i);
+                            auto opt_data = symbol_table.lookup(identifier);
+                            if (!opt_data) CompilerOutputs::Fatal("Invalid GPIO symbol: " + identifier);
+
+                            symbol_data data = *opt_data;
+
+                            if(! std::holds_alternative<std::tuple<std::string, int>>(data)) CompilerOutputs::Fatal("Invalid symbol type: " + identifier);
+                            auto [check, pin] = std::get<std::tuple<std::string, int>>(data);
+
+                            if( check != "gpio_pin" ) CompilerOutputs::Fatal("Invalid symbol type: " + identifier);
+
+                            results.push_back({ ParseResultKind::Read, declaration<mcu_read>{ token, mcu_read { pin, is_digital(pin) } } });
+                            i--;
+                        } continue;
+
+                        case ALLOC_INSTRUCTION: {
+                            std::string type = getnext(tokens, i);
+
+                            auto opt_data = symbol_table.lookup(type);
+                            if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + type);
+
+                            symbol_data data = *opt_data;
+
+                            if(
+                               !std::holds_alternative<morgana_types>(data)
+                            && !std::holds_alternative<morgana_subtypes>(data)
+                            )  CompilerOutputs::Fatal("Invalid symbol type: " + type);
+
+                            results.push_back({ ParseResultKind::Alloc, declaration<symbol_data> { token, data } });
                             i--;
                         } continue;
 

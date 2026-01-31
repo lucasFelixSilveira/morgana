@@ -5,10 +5,8 @@
 #include "params.hpp"
 #include "extensors/runtime.hpp"
 #include "parser.hpp"
-#include "parser/declaration.hpp"
+#include "parser/comp.hpp"
 #include "parser/symbols.hpp"
-#include "parser/mcu/gpio.hpp"
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -118,17 +116,41 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             morgana_push_ctx(data.body);
         } break;
 
-        case ParseResultKind::Wait: {
-            auto data = std::get<int>(second(node));
+        case ParseResultKind::BranchNotEqualZero: {
+            auto data = std::get<brnez>(second(node));
 
-            lua_pushinteger(L, (data * 1000));
-            lua_setfield(L, -2, "ms");
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            lua_pushstring(L, second(data).c_str());
+            lua_setfield(L, -2, "label");
         } break;
 
+        case ParseResultKind::Branch: {
+            auto data = std::get<std::string>(second(node));
+
+            lua_pushstring(L, data.c_str());
+            lua_setfield(L, -2, "label");
+        } break;
+
+        case ParseResultKind::Label: {
+            auto data = std::get<std::string>(second(node));
+
+            lua_pushstring(L, data.c_str());
+            lua_setfield(L, -2, "identifier");
+        } break;
+
+        case ParseResultKind::Wait:
         case ParseResultKind::WaitMS: {
             auto data = std::get<int>(second(node));
 
-            lua_pushinteger(L, data);
+            // calculate the delay in milliseconds
+            // considering the base unit is seconds
+            // for the `wait` keyword.
+            const int second = 1000;
+            int base = ParseResultKind::Wait == first(node);
+            int mul = base * second + !base;
+            lua_pushinteger(L, data * mul);
             lua_setfield(L, -2, "ms");
         } break;
 
@@ -140,6 +162,19 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
             lua_pushboolean(L, data.toggle);
             lua_setfield(L, -2, "toggle");
+        } break;
+
+        case ParseResultKind::Read: {
+            auto data = std::get<declaration<mcu_read>>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            lua_pushinteger(L, first(second(data)));
+            lua_setfield(L, -2, "pin");
+
+            lua_pushboolean(L, second(second(data)));
+            lua_setfield(L, -2, "digital");
         } break;
 
         default: break;

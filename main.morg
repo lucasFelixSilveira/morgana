@@ -1,12 +1,44 @@
-p2 = gpio 2
-p3 = gpio 3
+white = gpio 2
+blue = gpio 3
+
+input = gpio 4
+
 i32 main() {
+    turn white on
+    turn blue off
+    waitms 500
+    turn white off
+    turn blue on
+    waitms 500
+    turn white off
+    turn blue off
+
+    _0 = read input
+
     loop {
-        turn p2 off
-        turn p3 on
-        waitms 2000
-        turn p2 on
-        turn p3 off
-        waitms 2000
+        check = read input
+        brnez check high
+        br low
+
+        ::high::
+        turn blue off
+        turn white on
+        waitms 300
+        turn white off
+        waitms 300
+        turn blue off
+        turn white on
+        br continue
+
+        ::low::
+        turn white off
+        turn blue on
+        waitms 300
+        turn blue off
+        waitms 300
+        turn white off
+        turn blue on
+
+        ::continue::
     }
 }

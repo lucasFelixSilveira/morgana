@@ -1,1 +1,1 @@
-./bin/morgana build -m main.morg -v -o avr
+./bin/morgana build -m main.morg -o avr
