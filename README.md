@@ -44,22 +44,10 @@ $ morgana build -o x86_64-optimized
 
 # Examples
 
-### Morgana LED Flip Flop
+### Morgana LED Flip Flop - MCUs
 [Click to watch - Morgana FLIP FLOP in AVR platform](https://youtu.be/N7LiUWXcLLY)
-```morgana
-p2 = gpio 2
-p3 = gpio 3
-i32 main() { 
-  loop {
-      turn p2 off
-      turn p3 on
-      waitms 2000
-      turn p2 on
-      turn p3 off
-      waitms 2000
-  } 
-}
-```
+### Morgana reading GPIO and taking decisions - MCUs
+[Click to watch -  Morgana now has Branches! Arduino (MCU) use example](https://youtu.be/N7LiUWXcLLY)
 
 ## 🔥 LLVM vs Morgana
   
