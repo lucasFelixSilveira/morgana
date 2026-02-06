@@ -33,22 +33,28 @@ std::vector<std::string> mocks;
 
 enum ParseResultKind {
     // Functions nodes
-    Desconstructor,
-    Function,
-    Alloc,
-    Ret,
-    Call,
-    Loop,
-    Wait,
-    WaitMS,
-    BranchNotEqualZero,
-    Branch,
-    Label,
+    Desconstructor     = 10,
+    Function           = 11,
+    Call               = 12,
+    Ret                = 13,
+
+    Wait               = 20,
+    WaitMS             = 21,
+
+    Label              = 30,
+    Branch             = 31,
+    BranchNotEqualZero = 32,
+
+    Alloc              = 40,
+    Store              = 41,
+    Load               = 42,
+
+    Loop               = 700,
 
     // MCUs nodes
-    GPIO = 1001,
-    Turn = 1002,
-    Read = 1003,
+    GPIO               = 1001,
+    Turn               = 1002,
+    Read               = 1003,
 };
 
 enum symbolKind { GPIO_PIN };
@@ -355,13 +361,13 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             default: {
                 auto [is, info] = is_type(token);
-                if (is && is_identifier(next)) {
+                if( is && is_identifier(next) ) {
                     std::string name;
                     std::vector<std::string> args;
 
                     std::string callStr;
                     int j = i + 1;
-                    for (; j < tokens.size(); ) {
+                    for(; j < tokens.size(); ) {
                         callStr += getnext(tokens, j) + " ";
                         if (tokens[j-1].find(')') != std::string::npos) break;
 
@@ -382,16 +388,13 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     }
 
                     std::vector<morgana_paramters> types;
-                    for (std::string& arg : args) {
+                    for( std::string& arg : args ) {
                         auto opt_data = symbol_table.lookup(arg);
                         if (!opt_data) CompilerOutputs::Fatal("Invalid symbol: " + arg);
 
                         symbol_data data = *opt_data;
-                        if (std::holds_alternative<morgana_types>(data)) {
-                            types.push_back(std::get<morgana_types>(data));
-                        } else if (std::holds_alternative<morgana_subtypes>(data)) {
-                            types.push_back(std::get<morgana_subtypes>(data));
-                        }
+                        if( std::holds_alternative<morgana_types>(data)) types.push_back(std::get<morgana_types>(data));
+                        else if (std::holds_alternative<morgana_subtypes>(data)) types.push_back(std::get<morgana_subtypes>(data));
                     }
 
                     std::vector<std::string> body;
@@ -417,7 +420,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     continue;
                 }
 
-                if (is_identifier(token) && next == "=") {
+                if( is_identifier(token) && next == "=" ) {
                     i += 2;
                     std::string instruction = getnext(tokens, i);
                     auto checkout = make_it_integer(instruction);
@@ -440,7 +443,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
                             std::string identifier = getnext(tokens, i);
                             auto opt_data = symbol_table.lookup(identifier);
-                            if (!opt_data) CompilerOutputs::Fatal("Invalid GPIO symbol: " + identifier);
+                            if(! opt_data ) CompilerOutputs::Fatal("Invalid GPIO symbol: " + identifier);
 
                             symbol_data data = *opt_data;
 
@@ -476,14 +479,14 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             std::string callStr;
 
                             int j = i + 1;
-                            for (; j < tokens.size(); j++) {
+                            for(; j < tokens.size(); j++ ) {
                                 callStr += getnext(tokens, i) + " ";
                                 if (tokens[j].find(')') != std::string::npos) break;
                             }
 
                             std::regex r("([a-zA-Z0-9_]+)\\(([^)]*)\\)");
                             std::smatch match;
-                            if (std::regex_search(callStr, match, r)) {
+                            if( std::regex_search(callStr, match, r) ) {
                                 name = match[1].str();
 
                                 std::stringstream ss(match[2].str());
@@ -492,17 +495,17 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             }
 
                             auto opt_data = symbol_table.lookup(name);
-                            if (!opt_data) CompilerOutputs::Fatal("Invalid symbol: " + name);
+                            if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + name);
 
                             symbol_data data = *opt_data;
 
-                            if (!std::holds_alternative<function_data>(data)) CompilerOutputs::Fatal("Invalid function: " + name);
+                            if(! std::holds_alternative<function_data>(data) ) CompilerOutputs::Fatal("Invalid function: " + name);
                             function_data func_info = std::get<function_data>(data);
 
                             j = 0;
-                            for (std::string& type : func_info.types) {
+                            for( std::string& type : func_info.types ) {
                                 validation data;
-                                if (data = check_valid(type, args[j++]); !std::get<0>(data)) {
+                                if( data = check_valid(type, args[j++]); !std::get<0>(data) ) {
                                     sys_err("call", args[j - 1], std::get<1>(data));
                                 }
                             }

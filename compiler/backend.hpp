@@ -113,7 +113,7 @@ struct Backend {
 
         if( params.target == "avr" ) {
             bool avr = CAND("avr-gcc", CAND("avr-objcopy", CAND("avrdude", CAND("avr-size", end))));
-            if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " hhttps://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
+            if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " https://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
 
             std::string build = "avr-gcc -mmcu=" + params.mcu + " -Os -DF_CPU=" + std::to_string(params.frequency) + " -Os -c target/output.s -o target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
             if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build avr");

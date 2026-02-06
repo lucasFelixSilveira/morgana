@@ -16,7 +16,6 @@
 #include "morgana/storage.hpp"
 
 namespace morgana {
-
     using dynamic = std::monostate;
     using non_size = std::variant<dynamic, int>;
 
@@ -164,13 +163,17 @@ namespace morgana {
          */
         std::string string() {
             std::stringstream ss;
-            ss << "\n" << return_type->string() << " " << name << " ";
+            ss << "\n" << return_type->string() << " " << name << "(";
 
+            int i = 0;
             for( auto argument : arguments ) {
-                ss << argument->string() << " ";
+                ss << argument->string();
+                if( i++ < arguments.size() - 1 ) {
+                    ss << ", ";
+                }
             }
 
-            ss << "{\n" << body << "}\n";
+            ss << ") {\n" << body << "}\n";
             return ss.str();
         }
     };
@@ -537,18 +540,3 @@ namespace morgana {
         }
     };
 };
-
-/*
-x = 1 + (2 + (3 + (4 + 5)))
-
-    1 + ()
-        2 ()
-           3 ()
-              4 5
-
-x = (1 + 2) * (3*4) + 5
-    ()  *  ()
-  1+2   () + ()
-        3*4  5+0
-
-*/
