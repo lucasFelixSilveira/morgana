@@ -240,7 +240,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             case RET_KEYWORD: {
                 if(! in_function ) CompilerOutputs::Fatal("Return statement outside of function");
-                results.push_back({ ParseResultKind::Ret, ret{} });
+                results.push_back({ ParseResultKind::Ret, std::monostate() });
             } continue;
 
             case LOOP_KEYWORD: {
@@ -342,7 +342,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 std::string identifier = getnext(tokens, i);
 
                 auto opt_data = symbol_table.lookup(identifier);
-                if (!opt_data) CompilerOutputs::Fatal("Invalid GPIO symbol: " + identifier);
+                if(! opt_data ) CompilerOutputs::Fatal("Invalid GPIO symbol: " + identifier);
 
                 symbol_data data = *opt_data;
 
@@ -369,8 +369,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     int j = i + 1;
                     for(; j < tokens.size(); ) {
                         callStr += getnext(tokens, j) + " ";
-                        if (tokens[j-1].find(')') != std::string::npos) break;
-
+                        if( tokens[j-1].find(')') != std::string::npos ) break;
                     }
                     i = j + 1;
 

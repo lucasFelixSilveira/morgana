@@ -42,6 +42,28 @@ Extensors are extensions to Morgana codegen, which allow you to add your custom 
 $ morgana build -o x86_64-optimized
 ```
 
+## What official extensors are already implemented?
+<table>
+    <tr>
+    <td>MCU (AVR)</td>
+    <td>MCU (xtensa)</td>
+    <td>CPU (x86_64)</td>
+    <td>CPU (i386)</td>
+    <td>CPU (ARM)</td>
+    <td>GPU (NVIDIA)</td>
+    <td>GPU (AMD)</td>
+    </tr>
+    <tr>
+    <td>🟡</td>
+    <td>❌</td>
+    <td>❌</td>
+    <td>❌</td>
+    <td>❌</td>
+    <td>❌</td>
+    <td>❌</td>
+    </tr>
+</table>
+
 # Examples
 
 ### Morgana LED Flip Flop - MCUs
