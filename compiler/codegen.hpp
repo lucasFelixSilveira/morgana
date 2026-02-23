@@ -6,6 +6,7 @@
 #include "extensors/runtime.hpp"
 #include "parser.hpp"
 #include "parser/comp.hpp"
+#include "parser/declaration.hpp"
 #include "parser/storage.hpp"
 #include "parser/symbols.hpp"
 #include "parser/types/integer.hpp"
@@ -206,6 +207,16 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             lua_setfield(L, -2, "type");
         } break;
 
+        case ParseResultKind::Load: {
+            auto data = std::get<declaration<std::string>>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            lua_pushstring(L, second(data).c_str());
+            lua_setfield(L, -2, "source");
+        } break;
+
         case ParseResultKind::Store: {
             auto data = std::get<storage>(second(node));
 
@@ -214,6 +225,24 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
             lua_pushstring(L, data.value.c_str());
             lua_setfield(L, -2, "value");
+        } break;
+
+        case ParseResultKind::Operation: {
+            auto data = std::get<declaration<morgana_operation>>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            auto info = second(data);
+
+            lua_pushstring(L, info.instruction.c_str());
+            lua_setfield(L, -2, "instruction");
+
+            lua_pushstring(L, info.lhs.c_str());
+            lua_setfield(L, -2, "lhs");
+
+            lua_pushstring(L, info.rhs.c_str());
+            lua_setfield(L, -2, "rhs");
         } break;
 
         default: break;

@@ -22,4 +22,6 @@ namespace context {
     const int ALL_LOOP_STATEMENT = 11;
     const int ALL_NEXT_STATEMENT = 12;
     const int ALL_STOP_STATEMENT = 13;
+
+    const int ALL_ADD_INSTRUCTION = 14;
 }

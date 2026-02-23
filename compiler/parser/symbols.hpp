@@ -19,10 +19,12 @@ using morgana_types = std::variant<morgana_integer, morgana_bool, morgana_strong
 
 struct function_data { std::vector<std::string> types; };
 
+using morgana_load = std::string;
 using named_integers = std::tuple<std::string, int>;
 
 enum symbolKind { GPIO_PIN };
 struct morgana_allocation;
+struct morgana_operation;
 using symbol = std::variant<
     std::monostate,  // No data entries
     morgana_integer, // Integer type
@@ -42,10 +44,19 @@ using symbol = std::variant<
 
     function_data,      // Store the type of the arguments of the function
     named_integers,     // Storage integer types
-    morgana_allocation  // Storage the data of the instruction of allocation
+    morgana_allocation, // Storage the data of the instruction of allocation
+    morgana_load,       // Storage the load source
+    morgana_operation   // Storage the operation values
 >;
 
 struct morgana_allocation { std::string identifier; std::shared_ptr<symbol> type; };
+struct morgana_operation {
+    std::string instruction;
+    std::string lhs;
+    std::string rhs;
+    morgana_operation(std::string instruction, std::string lhs, std::string rhs) :
+        instruction(instruction), lhs(lhs), rhs(rhs) {}
+};
 
 class SymbolTable {
 private:

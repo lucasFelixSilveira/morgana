@@ -42,7 +42,7 @@ struct morgana_integer {
         std::stringstream ss;
         ss << "{ ";
         ss << " \"bytes\": " << ( bits / 8 ) << ", ";
-        ss << " \"matrix\": " << ( matrixPos() + 1 ) << ", ";
+        ss << " \"matrix\": " << matrixPos() << ", ";
         ss << " \"ptr\": false";
         ss << "}";
         return ss.str();

@@ -23,6 +23,10 @@ auto second(T tuple) {
     return std::get<1>(tuple);
 }
 
+template <typename T>
+auto third(T tuple) {
+    return std::get<2>(tuple);
+}
 
 std::tuple<std::string, int> types[] = {
     { "u8", 1 },   { "i8", 1 },

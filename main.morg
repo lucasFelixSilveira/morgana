@@ -1,6 +1,11 @@
 i32 main() {
     x = alloc i8
     y = alloc i32
-    store y 34
-    store x 0
+    store y 30
+    store x 4
+
+    z = load x
+    w = load y
+    v = sub w z
+    u = add v 3
 }

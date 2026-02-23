@@ -14,6 +14,11 @@
 #define BRANCH_NOT_EQUAL_ZERO_KEYWORD 9
 #define BRANCH_KEYWORD 10
 #define STORE_KEYWORD 11
+#define LOAD_INSTRUCTION 12
+#define ADD_INSTRUCTION 13
+#define SUB_INSTRUCTION 14
+#define DIV_INSTRUCTION 15
+#define MUL_INSTRUCTION 16
 
 #define DEFINE_LABEL 10000
 
@@ -35,6 +40,11 @@ int make_it_integer(const std::string& str) {
     if( str == "gpio" ) return GPIO_INSTRUCTION;
     if( str == "read" ) return READ_INSTRUCTION;
     if( str == "alloc" ) return ALLOC_INSTRUCTION;
+    if( str == "load" ) return LOAD_INSTRUCTION;
+    if( str == "add" ) return ADD_INSTRUCTION;
+    if( str == "sub" ) return SUB_INSTRUCTION;
+    if( str == "div" ) return SUB_INSTRUCTION;
+    if( str == "mul" ) return SUB_INSTRUCTION;
 
     return -1;
 }
