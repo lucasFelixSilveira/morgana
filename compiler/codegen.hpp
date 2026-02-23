@@ -7,6 +7,8 @@
 #include "parser.hpp"
 #include "parser/comp.hpp"
 #include "parser/symbols.hpp"
+#include "parser/types/integer.hpp"
+#include "parser/types/strong_alias.hpp"
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -96,8 +98,15 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             // store the function parameters type
             // using JSON encoder
             JSON_ENCODER(ss, data.argst, {
-                if( std::holds_alternative<morgana_types>(iter) )return std::get<morgana_types>(iter).value.json();
-                if( std::holds_alternative<morgana_subtypes>(iter) )return std::get<morgana_subtypes>(iter).real_one.json();
+                if( std::holds_alternative<morgana_strong_alias>(iter) ) {
+                    auto data = std::get<0>(std::get<morgana_strong_alias>(iter));
+                    if( std::holds_alternative<morgana_integer>(data) ) {
+                        auto x = std::get<morgana_integer>(data);
+                        iter = symbol(x);
+                    }
+                }
+
+                if( std::holds_alternative<morgana_integer>(iter) ) return std::get<morgana_integer>(iter).json();
                 return std::string();
             });
             lua_pushstring(L, ss.str().c_str());

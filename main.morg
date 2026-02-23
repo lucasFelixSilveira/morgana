@@ -1,22 +1,2 @@
-led = gpio 2
-input = gpio 3
-
 i32 main() {
-    turn led on
-    _0 = read input
-
-    loop {
-        check = read input
-        brnez check high
-        br low
-
-        ::high::
-        turn led on
-        br continue
-
-        ::low::
-        turn led off
-
-        ::continue::
-    }
 }

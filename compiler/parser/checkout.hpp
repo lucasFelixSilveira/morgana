@@ -1,3 +1,5 @@
+#pragma once
+
 #include <algorithm>
 #include <regex>
 #include <sstream>
@@ -5,6 +7,11 @@
 #include <variant>
 
 #include "type.hpp"
+
+template <typename T>
+bool contains(std::vector<T> vec, T value) {
+    return std::find(std::begin(vec), std::end(vec), value) != std::end(vec);
+}
 
 template <typename T>
 auto first(T tuple) {
@@ -75,7 +82,6 @@ bool is_identifier(std::string value) {
     std::stringstream ss;
     const char *c = value.c_str();
     int i = 0; while( c[i] != '(' && c[i] != 0 ) ss << c[i++];
-
 
     std::regex r("^[a-zA-Z_][a-zA-Z0-9_]*$");
     return std::regex_match(ss.str(), r);

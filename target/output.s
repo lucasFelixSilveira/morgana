@@ -20,22 +20,19 @@ morgana_delay_end:
 .section .text
 .global main
 main:
-	sbi 0x0A, 2
-	sbi 0x0B, 2
+.LOOP0:
 	cbi 0x0A, 3
 	sbi 0x0B, 3
 	in r24, 0x09
 	andi r24, 8
-.LOOP0:
-	in r24, 0x09
-	andi r24, 8
 	cpi r24, 0
-	brne .main_high
-	rjmp .main_low
-.main_high:
+	brne .main_led
+	rjmp .main_zero
+.main_um:
+	sbi 0x0A, 2
 	sbi 0x0B, 2
-	rjmp .main_continue
-.main_low:
+	rjmp .main_continuar
+.main_zero:
 	cbi 0x0B, 2
-.main_continue:
+.main_continuar:
 	rjmp .LOOP0

@@ -38,8 +38,8 @@ void debug_print(ParseResults results) {
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "body" << Colorizer::RESET << ": std::vector<std::string>(" << data.body.size() << ")\n";
                 std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::GREEN << "arguments" << Colorizer::RESET << ": std::vector<type>(" << data.argst.size() << ")\n";
                 for( const auto& argt : data.argst ) {
-                    if( std::holds_alternative<morgana_types>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::YELLOW << std::get<morgana_types>(argt).value.value << "\n";
-                    if( std::holds_alternative<morgana_subtypes>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::BOLD_CYAN << std::get<morgana_subtypes>(argt).identifier << "\n";
+                    // if( std::holds_alternative<morgana_types>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::YELLOW << std::get<morgana_types>(argt).value.value << "\n";
+                    // if( std::holds_alternative<morgana_subtypes>(argt)) std::cout << "   " << Colorizer::DARK_GREY << "└─ " << Colorizer::BOLD_CYAN << std::get<morgana_subtypes>(argt).identifier << "\n";
                 }
                 std::cout << "\n";
             } break;

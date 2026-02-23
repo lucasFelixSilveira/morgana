@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 
-#define MORGANA_DEBUG false
+#define MORGANA_DEBUG true
 
 struct CompilerOutputs {
 public:
