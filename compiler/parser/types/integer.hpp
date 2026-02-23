@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdlib>
 #include <regex>
 #include <string>
@@ -32,7 +33,18 @@ struct morgana_integer {
         return true;
     }
 
+
+    int matrixPos() const {
+        return std::log2(bits) - 2;
+    }
+
     std::string json() {
-        return "";
+        std::stringstream ss;
+        ss << "{ ";
+        ss << " \"bytes\": " << ( bits / 8 ) << ", ";
+        ss << " \"matrix\": " << ( matrixPos() + 1 ) << ", ";
+        ss << " \"ptr\": false";
+        ss << "}";
+        return ss.str();
     }
 };

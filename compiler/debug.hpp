@@ -7,7 +7,6 @@
 
 #include "parser/declaration.hpp"
 #include "parser/function.hpp"
-#include "parser/symbols.hpp"
 #include "parser/turn.hpp"
 
 enum ParseNodeKind {

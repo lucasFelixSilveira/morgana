@@ -16,11 +16,8 @@ using validation = std::tuple<bool, symbol>;
         goto ignore_next; \
     }
 
-validation check_valid(const std::string& type, const std::string& value, int ctx) {
-    auto opt_data = symbol_table.lookup(type);
-    if(! opt_data ) return { false, symbol{} };
 
-    symbol data = *opt_data;
+validation check_valid(symbol data, const std::string& value, int ctx) {
     bool is_alias = false;
     auto strong_alias = morgana_strong_alias(std::monostate(), 0);
 
@@ -45,4 +42,12 @@ validation check_valid(const std::string& type, const std::string& value, int ct
     }
 
     return { false, data };
+}
+
+validation check_valid(const std::string& type, const std::string& value, int ctx) {
+    auto opt_data = symbol_table.lookup(type);
+    if(! opt_data ) return { false, symbol{} };
+
+    symbol data = *opt_data;
+    return check_valid(data, value, ctx);
 }

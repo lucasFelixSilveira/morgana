@@ -13,6 +13,7 @@
 #define ALLOC_INSTRUCTION 8
 #define BRANCH_NOT_EQUAL_ZERO_KEYWORD 9
 #define BRANCH_KEYWORD 10
+#define STORE_KEYWORD 11
 
 #define DEFINE_LABEL 10000
 
@@ -29,6 +30,7 @@ int make_it_integer(const std::string& str) {
     if( str == "waitms" ) return WAITMS_KEYWORD;
     if( str == "brnez" ) return BRANCH_NOT_EQUAL_ZERO_KEYWORD;
     if( str == "br" ) return BRANCH_KEYWORD;
+    if( str == "store" ) return STORE_KEYWORD;
 
     if( str == "gpio" ) return GPIO_INSTRUCTION;
     if( str == "read" ) return READ_INSTRUCTION;

@@ -6,6 +6,7 @@
 #include "extensors/runtime.hpp"
 #include "parser.hpp"
 #include "parser/comp.hpp"
+#include "parser/storage.hpp"
 #include "parser/symbols.hpp"
 #include "parser/types/integer.hpp"
 #include "parser/types/strong_alias.hpp"
@@ -37,6 +38,13 @@ enum LUAT {
         };                                                                    \
         ss << "] }";                                                          \
     }
+
+#define CALL_FIELD_FOR_SYMBOLS(ret, symbol, field)                            \
+    [&]() -> ret {                                                            \
+        if( std::holds_alternative<morgana_integer>(symbol) )                 \
+        /* -> */ return std::get<morgana_integer>(symbol).field();            \
+        return ret();                                                         \
+    }()
 
 std::stack<std::shared_ptr<ASTIterator>> iterators;
 std::shared_ptr<ASTIterator> current_iterator = nullptr;
@@ -184,6 +192,28 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
             lua_pushboolean(L, second(second(data)));
             lua_setfield(L, -2, "digital");
+        } break;
+
+        case ParseResultKind::Alloc: {
+            auto data = std::get<declaration<symbol>>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            auto type = second(data);
+            auto json = CALL_FIELD_FOR_SYMBOLS(std::string, type, json);
+            lua_pushstring(L, json.c_str());
+            lua_setfield(L, -2, "type");
+        } break;
+
+        case ParseResultKind::Store: {
+            auto data = std::get<storage>(second(node));
+
+            lua_pushstring(L, data.identifier.c_str());
+            lua_setfield(L, -2, "identifier");
+
+            lua_pushstring(L, data.value.c_str());
+            lua_setfield(L, -2, "value");
         } break;
 
         default: break;

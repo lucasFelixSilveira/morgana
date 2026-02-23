@@ -18,7 +18,8 @@ namespace context {
     const int ALL_BRANCH_IF_GREATER_INSTRUCTION = 8;
     const int ALL_BRANCH_IF_LESS_INSTRUCTION = 9;
 
-    const int ALL_LOOP_STATEMENT = 10;
-    const int ALL_NEXT_STATEMENT = 11;
-    const int ALL_STOP_STATEMENT = 12;
+    const int ALL_WAIT_STATEMENT = 10;
+    const int ALL_LOOP_STATEMENT = 11;
+    const int ALL_NEXT_STATEMENT = 12;
+    const int ALL_STOP_STATEMENT = 13;
 }

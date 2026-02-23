@@ -2,6 +2,7 @@
 
 #include "contexts.hpp"
 #include "type.hpp"
+#include <memory>
 #include <optional>
 #include <tuple>
 #include <unordered_map>
@@ -21,6 +22,7 @@ struct function_data { std::vector<std::string> types; };
 using named_integers = std::tuple<std::string, int>;
 
 enum symbolKind { GPIO_PIN };
+struct morgana_allocation;
 using symbol = std::variant<
     std::monostate,  // No data entries
     morgana_integer, // Integer type
@@ -38,9 +40,12 @@ using symbol = std::variant<
      * are here just for the Morgana compiler know all the symbols
      * in the user code during the compilation phase. */
 
-    function_data,  // Store the type of the arguments of the function
-    named_integers  // Storage integer types
+    function_data,      // Store the type of the arguments of the function
+    named_integers,     // Storage integer types
+    morgana_allocation  // Storage the data of the instruction of allocation
 >;
+
+struct morgana_allocation { std::string identifier; std::shared_ptr<symbol> type; };
 
 class SymbolTable {
 private:

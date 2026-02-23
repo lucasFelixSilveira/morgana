@@ -1,2 +1,6 @@
 i32 main() {
+    x = alloc i8
+    y = alloc i32
+    store y 34
+    store x 0
 }

@@ -3,15 +3,14 @@
 #include <algorithm>
 #include <cstdlib>
 #include <linux/limits.h>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <tuple>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 #include <regex>
-#include <stack>
 
 #include "main.hpp"
 #include "compiler_outputs.hpp"
@@ -25,6 +24,7 @@
 #include "parser/keywords.hpp"
 #include "parser/turn.hpp"
 #include "parser/declaration.hpp"
+#include "parser/storage.hpp"
 #include "parser/mcu/read.hpp"
 #include "parser/mcu/gpio.hpp"
 #include "parser/symbols.hpp"
@@ -66,6 +66,7 @@ using ParseResult = std::tuple<ParseResultKind, std::variant<
     std::string,
     int,
     function,
+    storage,
     ret,
     call,
     turn,
@@ -116,11 +117,13 @@ ParseResults parse(std::vector<std::string>& tokens) {
             } continue;
 
             case RET_KEYWORD: {
+                ctx = context::ALL_RETURN_INSTRUCTION;
                 if(! in_function ) CompilerOutputs::Fatal("Return statement outside of function");
                 results.push_back({ ParseResultKind::Ret, std::monostate() });
             } continue;
 
             case LOOP_KEYWORD: {
+                ctx = context::ALL_LOOP_STATEMENT;
                 i++;
                 if( getnext(tokens, i) != "{" ) CompilerOutputs::Fatal("Loop statement needs a code-block");
 
@@ -137,6 +140,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             case WAIT_KEYWORD:
             case WAITMS_KEYWORD: {
+                ctx = context::ALL_WAIT_STATEMENT;
                 i++;
                 std::string number = getnext(tokens, i);
                 if(! is_number(number) ) CompilerOutputs::Fatal("Wait statement needs a numeric complement");
@@ -148,6 +152,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
             } continue;
 
             case BRANCH_NOT_EQUAL_ZERO_KEYWORD: {
+                ctx = context::ALL_BRANCH_IF_NOT_EQUALS_ZERO_INSTRUCTION;
                 i++;
                 std::string identifier = getnext(tokens, i);
                 if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Branch not equal zero statement needs an identifier");
@@ -163,6 +168,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
             } continue;
 
             case BRANCH_KEYWORD: {
+                ctx = context::ALL_BRANCH_INSTRUCTION;
                 i++;
                 std::string label = getnext(tokens, i);
                 if(! is_identifier(label) ) CompilerOutputs::Fatal("Label statement needs an identifier");
@@ -170,7 +176,29 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 i--;
             } continue;
 
+            case STORE_KEYWORD: {
+                ctx = context::ALL_STORE_INSTRUCTION;
+                i++;
+                std::string identifier = getnext(tokens, i);
+                if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Store statement needs an identifier");
+
+                auto opt_data = symbol_table.lookup(identifier);
+                if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
+                symbol data = *opt_data;
+                if(! std::holds_alternative<morgana_allocation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+                morgana_allocation allocation = std::get<morgana_allocation>(data);
+
+                std::string value = getnext(tokens, i);
+                validation check;
+                if( check = check_valid(*allocation.type, value, ctx); !std::get<0>(check) ) sys_err("store", value, *allocation.type, true);
+
+                results.push_back({ ParseResultKind::Store, storage(identifier, value) });
+                i--;
+            } continue;
+
             case CALL_KEYWORD: {
+                ctx = context::ALL_CALL_INSTRUCTION;
                 std::string name;
                 std::vector<std::string> args;
                 std::string callStr;
@@ -178,7 +206,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 int j = i + 1;
                 for(; j < tokens.size(); j++ ) {
                     callStr += tokens[j] + " ";
-                    if (tokens[j].find(')') != std::string::npos) break;
+                    if( tokens[j].find(')') != std::string::npos ) break;
                 }
 
                 if( j >= tokens.size() ) CompilerOutputs::Fatal("Bad call instruction");
@@ -315,6 +343,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         } continue;
 
                         case READ_INSTRUCTION: {
+                            ctx = context::MCU_READ_INSTRUCTION;
                             if(! mcu ) CompilerOutputs::Fatal("Digital read instructions are only available for MCUs");
 
                             std::string identifier = getnext(tokens, i);
@@ -333,18 +362,22 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         } continue;
 
                         case ALLOC_INSTRUCTION: {
+                            ctx = context::ALL_ALLOC_INSTRUCTION;
                             std::string type = getnext(tokens, i);
 
                             auto opt_data = symbol_table.lookup(type);
                             if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + type);
 
                             symbol data = *opt_data;
+                            symbol_table.insert(token, morgana_allocation { token, std::make_shared<symbol>(data) });
+
                             if(! first(is_type(type)) ) CompilerOutputs::Fatal("Invalid symbol type: " + type);
                             results.push_back({ ParseResultKind::Alloc, declaration<symbol> { token, data } });
                             i--;
                         } continue;
 
                         case CALL_KEYWORD: {
+                            ctx = context::ALL_CALL_INSTRUCTION;
                             std::string name;
                             std::vector<std::string> args;
                             std::string callStr;
