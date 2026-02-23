@@ -56,7 +56,7 @@ $ morgana build -o x86_64-optimized
     <tr>
     <td>🟡</td>
     <td>❌</td>
-    <td>❌</td>
+    <td>🟡</td>
     <td>❌</td>
     <td>❌</td>
     <td>❌</td>

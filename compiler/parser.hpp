@@ -105,7 +105,6 @@ ParseResults parse(std::vector<std::string>& tokens) {
     ParseResults results = {};
 
     // Contexto de função atual (para gerenciar escopos)
-    bool in_function = false;
 
     for( int i = 0; i < tokens.size(); i++ ) {
         std::string token = tokens[i], next = "";
@@ -121,7 +120,6 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             case RET_KEYWORD: {
                 ctx = context::ALL_RETURN_INSTRUCTION;
-                if(! in_function ) CompilerOutputs::Fatal("Return statement outside of function");
                 results.push_back({ ParseResultKind::Ret, std::monostate() });
             } continue;
 
