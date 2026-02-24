@@ -37,24 +37,31 @@ std::vector<std::string> mocks;
 int ctx;
 
 enum ParseResultKind {
-    // Functions nodes
-    Desconstructor     = 10,
-    Function           = 11,
-    Call               = 12,
-    Ret                = 13,
+    none = -1,
 
-    Wait               = 20,
-    WaitMS             = 21,
+    Desconstructor     = 100,
+    Function           = 101,
+    Call               = 102,
+    Ret                = 103,
 
-    Label              = 30,
-    Branch             = 31,
-    BranchNotEqualZero = 32,
+    Wait               = 200,
+    WaitMS             = 201,
 
-    Alloc              = 40,
-    Store              = 41,
-    Load               = 42,
+    Label              = 300,
+    Branch             = 301,
+    BranchNotEqualZero = 302,
+    BranchEqualZero    = 303,
+    BranchGrant        = 304,
+    BranchLess         = 305,
+    BranchGrantEqual   = 306,
+    BranchLessEqual    = 307,
 
-    Operation          = 50,
+    Alloc              = 400,
+    Store              = 401,
+    Load               = 402,
+
+    Operation          = 500,
+    Alert              = 501,
 
     Loop               = 700,
 
@@ -73,7 +80,8 @@ using ParseResult = std::tuple<ParseResultKind, std::variant<
     call,
     turn,
     loop,
-    std::tuple<std::string, std::string>,
+    simplebranch,
+    branchmeasure,
     declaration<gpio>,
     declaration<call>,
     declaration<mcu_read>,
@@ -123,6 +131,12 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 results.push_back({ ParseResultKind::Ret, std::monostate() });
             } continue;
 
+            case ALERT_KEYWORD: {
+                ctx = context::ALL_ALERT_INSTRUCTION;
+                results.push_back({ ParseResultKind::Alert, std::monostate() });
+            } continue;
+
+
             case LOOP_KEYWORD: {
                 ctx = context::ALL_LOOP_STATEMENT;
                 i++;
@@ -152,18 +166,84 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 i--;
             } continue;
 
+            case BRANCH_EQUAL_ZERO_KEYWORD:
             case BRANCH_NOT_EQUAL_ZERO_KEYWORD: {
-                ctx = context::ALL_BRANCH_IF_NOT_EQUALS_ZERO_INSTRUCTION;
+                ctx = (checkout == BRANCH_EQUAL_ZERO_KEYWORD)
+                    ? context::ALL_BRANCH_IF_EQUALS_ZERO_INSTRUCTION
+                    : context::ALL_BRANCH_IF_NOT_EQUALS_ZERO_INSTRUCTION;
+
+                std::string isnt = (checkout == BRANCH_EQUAL_ZERO_KEYWORD)
+                    ? "is"
+                    : "isn't";
+
                 i++;
                 std::string identifier = getnext(tokens, i);
-                if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Branch not equal zero statement needs an identifier");
+                if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Branch if " + isnt + " equal zero statement needs an identifier");
+
+                auto opt_data = symbol_table.lookup(identifier);
+                if(! opt_data ) CompilerOutputs::Fatal("Branch if " + isnt + " equal zero statement needs a valid identifier");
+
+                symbol data = *opt_data;
+                if(!(
+                       std::holds_alternative<morgana_load>(data)
+                    || std::holds_alternative<morgana_operation>(data)
+                )) CompilerOutputs::Fatal("The Branch if " + isnt + " equal zero statement needs be a valid symbol. Like a MORGANA_LOAD instruction.");
 
                 std::string label = getnext(tokens, i);
-                if(! is_identifier(label) ) CompilerOutputs::Fatal("Branch not equal zero statement also needs an identifier on the second argument");
+                if(! is_identifier(label) ) CompilerOutputs::Fatal("Branch if " + isnt + " equal zero statement also needs an identifier on the second argument");
 
                 results.push_back({
-                    ParseResultKind::BranchNotEqualZero,
-                    brnez { identifier, label }
+                    (checkout == BRANCH_EQUAL_ZERO_KEYWORD) ? ParseResultKind::BranchEqualZero
+                                                            :  ParseResultKind::BranchNotEqualZero,
+                    std::tuple<std::string, std::string> { identifier, label }
+                });
+                i--;
+            } continue;
+
+            case BRANCH_GRANT_KEYWORD:
+            case BRANCH_LESS_KEYWORD:
+            case BRANCH_GRANT_EQUAL_KEYWORD:
+            case BRANCH_LESS_EQUAL_KEYWORD: {
+                if( checkout == BRANCH_GRANT_KEYWORD ) ctx = context::ALL_BRANCH_IF_GREATER_INSTRUCTION;
+                if( checkout == BRANCH_LESS_KEYWORD ) ctx = context::ALL_BRANCH_IF_LESS_INSTRUCTION;
+                if( checkout == BRANCH_GRANT_EQUAL_KEYWORD ) ctx = context::ALL_BRANCH_IF_GREATER_EQUAL_INSTRUCTION;
+                if( checkout == BRANCH_LESS_EQUAL_KEYWORD ) ctx = context::ALL_BRANCH_IF_LESS_EQUAL_INSTRUCTION;
+
+                i++;
+                std::string first = getnext(tokens, i);
+                if(! is_identifier(first) ) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (0)");
+
+                auto first_data = symbol_table.lookup(first);
+                if(! first_data ) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (0)");
+
+                if(!(
+                       std::holds_alternative<morgana_load>(*first_data)
+                    || std::holds_alternative<morgana_operation>(*first_data)
+                )) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (0)");
+
+                std::string second = getnext(tokens, i);
+                if(! is_identifier(second) ) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (1)");
+
+                auto second_data = symbol_table.lookup(second);
+                if(! second_data ) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (1)");
+
+                if(!(
+                       std::holds_alternative<morgana_load>(*second_data)
+                    || std::holds_alternative<morgana_operation>(*second_data)
+                )) CompilerOutputs::Fatal("Multi-State Branch statement needs a valid identifier (1)");
+
+                std::string label = getnext(tokens, i);
+                if(! is_identifier(label) ) CompilerOutputs::Fatal("Multi-State Branch statement needs also needs an identifier on the third argument");
+
+                results.push_back({
+                    ([&]() -> ParseResultKind {
+                        if( checkout == BRANCH_GRANT_KEYWORD ) return ParseResultKind::BranchGrant;
+                        if( checkout == BRANCH_LESS_KEYWORD ) return ParseResultKind::BranchLess;
+                        if( checkout == BRANCH_GRANT_EQUAL_KEYWORD ) return ParseResultKind::BranchGrantEqual;
+                        if( checkout == BRANCH_LESS_EQUAL_KEYWORD ) return ParseResultKind::BranchLessEqual;
+                        return ParseResultKind::none;
+                    })(),
+                    std::tuple<std::string, std::string, std::string> { first, second, label }
                 });
                 i--;
             } continue;
@@ -398,7 +478,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         case DIV_INSTRUCTION:
                         case MUL_INSTRUCTION:
                         case ADD_INSTRUCTION: {
-                            ctx = context::ALL_ADD_INSTRUCTION;
+                            ctx = context::ALL_OPERATION_INSTRUCTION;
                             std::string lhs = getnext(tokens, i);
                             if(! (is_identifier(lhs) || is_number(lhs)) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
 

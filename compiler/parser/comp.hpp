@@ -5,5 +5,6 @@
 
 using label = std::string;
 
-using brnez = std::tuple<std::string, std::string>;
+using simplebranch = std::tuple<std::string, std::string>;
+using branchmeasure = std::tuple<std::string, std::string, std::string>;
 using br = std::string;

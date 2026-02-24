@@ -134,13 +134,30 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
             morgana_push_ctx(data.body);
         } break;
 
+        case ParseResultKind::BranchEqualZero:
         case ParseResultKind::BranchNotEqualZero: {
-            auto data = std::get<brnez>(second(node));
+            auto data = std::get<simplebranch>(second(node));
 
             lua_pushstring(L, first(data).c_str());
             lua_setfield(L, -2, "identifier");
 
             lua_pushstring(L, second(data).c_str());
+            lua_setfield(L, -2, "label");
+        } break;
+
+        case ParseResultKind::BranchGrant:
+        case ParseResultKind::BranchLess:
+        case ParseResultKind::BranchGrantEqual:
+        case ParseResultKind::BranchLessEqual: {
+            auto data = std::get<branchmeasure>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "first");
+
+            lua_pushstring(L, second(data).c_str());
+            lua_setfield(L, -2, "second");
+
+            lua_pushstring(L, third(data).c_str());
             lua_setfield(L, -2, "label");
         } break;
 

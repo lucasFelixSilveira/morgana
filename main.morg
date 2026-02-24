@@ -1,7 +1,2 @@
 i32 main() {
-    aura = alloc i32
-    store aura 0
-    ego = load aura
-    a = add ego 67
-    ret
 }

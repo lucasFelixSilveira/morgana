@@ -5,23 +5,27 @@ namespace context {
     const int MCU_TURN_INSTRUCTION = 1001;
     const int MCU_READ_INSTRUCTION = 1002;
 
-    const int ALL_ALLOC_INSTRUCTION = 0;
-    const int ALL_STORE_INSTRUCTION = 1;
-    const int ALL_LOAD_INSTRUCTION = 2;
+    const int ALL_ALLOC_INSTRUCTION                     = 0;
+    const int ALL_STORE_INSTRUCTION                     = 1;
+    const int ALL_LOAD_INSTRUCTION                      = 2;
 
-    const int ALL_CALL_INSTRUCTION = 3;
-    const int ALL_RETURN_INSTRUCTION = 4;
+    const int ALL_CALL_INSTRUCTION                      = 100;
+    const int ALL_RETURN_INSTRUCTION                    = 101;
 
-    const int ALL_BRANCH_INSTRUCTION = 5;
-    const int ALL_BRANCH_IF_NOT_EQUALS_ZERO_INSTRUCTION = 6;
-    const int ALL_BRANCH_IF_IS_ZERO_INSTRUCTION = 7;
-    const int ALL_BRANCH_IF_GREATER_INSTRUCTION = 8;
-    const int ALL_BRANCH_IF_LESS_INSTRUCTION = 9;
+    const int ALL_BRANCH_INSTRUCTION                    = 200;
+    const int ALL_BRANCH_IF_NOT_EQUALS_ZERO_INSTRUCTION = 201;
+    const int ALL_BRANCH_IF_EQUALS_ZERO_INSTRUCTION     = 202;
+    const int ALL_BRANCH_IF_IS_ZERO_INSTRUCTION         = 203;
+    const int ALL_BRANCH_IF_GREATER_INSTRUCTION         = 204;
+    const int ALL_BRANCH_IF_LESS_INSTRUCTION            = 205;
+    const int ALL_BRANCH_IF_LESS_EQUAL_INSTRUCTION      = 206;
+    const int ALL_BRANCH_IF_GREATER_EQUAL_INSTRUCTION   = 207;
 
-    const int ALL_WAIT_STATEMENT = 10;
-    const int ALL_LOOP_STATEMENT = 11;
-    const int ALL_NEXT_STATEMENT = 12;
-    const int ALL_STOP_STATEMENT = 13;
+    const int ALL_WAIT_STATEMENT                        = 300;
+    const int ALL_LOOP_STATEMENT                        = 301;
+    const int ALL_NEXT_STATEMENT                        = 302;
+    const int ALL_STOP_STATEMENT                        = 303;
 
-    const int ALL_ADD_INSTRUCTION = 14;
+    const int ALL_OPERATION_INSTRUCTION                 = 400;
+    const int ALL_ALERT_INSTRUCTION                     = 401;
 }
