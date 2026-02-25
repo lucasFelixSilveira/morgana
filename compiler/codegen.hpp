@@ -44,6 +44,8 @@ enum LUAT {
     [&]() -> ret {                                                            \
         if( std::holds_alternative<morgana_integer>(symbol) )                 \
         /* -> */ return std::get<morgana_integer>(symbol).field();            \
+        if( std::holds_alternative<morgana_tuple>(symbol) )                   \
+        /* -> */ return std::get<morgana_tuple>(symbol).field();              \
         return ret();                                                         \
     }()
 
@@ -173,6 +175,20 @@ static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
 
             lua_pushstring(L, data.c_str());
             lua_setfield(L, -2, "identifier");
+        } break;
+
+        case ParseResultKind::AddInPtr: {
+            auto data = std::get<declaration<addinptr>>(second(node));
+
+            lua_pushstring(L, first(data).c_str());
+            lua_setfield(L, -2, "identifier");
+
+            addinptr into = second(data);
+            lua_pushstring(L, first(into).c_str());
+            lua_setfield(L, -2, "address");
+
+            lua_pushinteger(L, second(into));
+            lua_setfield(L, -2, "offset");
         } break;
 
         case ParseResultKind::Wait:

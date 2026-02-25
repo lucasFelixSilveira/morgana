@@ -28,4 +28,8 @@ namespace context {
 
     const int ALL_OPERATION_INSTRUCTION                 = 400;
     const int ALL_ALERT_INSTRUCTION                     = 401;
+
+    const int ALL_TUPLE_INSTRUCTION                     = 500;
+    const int ALL_ADDINPTR_INSTRUCTION                  = 501;
+
 }

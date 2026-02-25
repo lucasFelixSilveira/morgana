@@ -11,6 +11,7 @@
 #include "types/integer.hpp"
 #include "types/bool.hpp"
 #include "types/strong_alias.hpp"
+#include "types/tuple.hpp"
 
 #define MCU_READ_WRITE_CONTEXTS { context::MCU_GPIO_INSTRUCTION, context::MCU_TURN_INSTRUCTION, context::MCU_READ_INSTRUCTION }
 
@@ -21,14 +22,18 @@ struct function_data { std::vector<std::string> types; };
 
 using morgana_load = std::string;
 using named_integers = std::tuple<std::string, int>;
+using addinptr = std::tuple<std::string, int>;
+using morgana_addinptr = std::shared_ptr<addinptr>;
 
 enum symbolKind { GPIO_PIN };
 struct morgana_allocation;
 struct morgana_operation;
+struct morgana_tuple;
 using symbol = std::variant<
     std::monostate,  // No data entries
     morgana_integer, // Integer type
     morgana_bool,    // Boolean type
+    morgana_tuple,   // Tuple type
 
     /* "Strong alias" is just a different form of the same type,
      * but with a different name and different uses.
@@ -46,7 +51,8 @@ using symbol = std::variant<
     named_integers,     // Storage integer types
     morgana_allocation, // Storage the data of the instruction of allocation
     morgana_load,       // Storage the load source
-    morgana_operation   // Storage the operation values
+    morgana_operation,  // Storage the operation values
+    morgana_addinptr    // Storage the data of the instruction of addinptr
 >;
 
 struct morgana_allocation { std::string identifier; std::shared_ptr<symbol> type; };
@@ -56,6 +62,22 @@ struct morgana_operation {
     std::string rhs;
     morgana_operation(std::string instruction, std::string lhs, std::string rhs) :
         instruction(instruction), lhs(lhs), rhs(rhs) {}
+};
+
+struct morgana_tuple {
+    std::vector<int> sizes;
+    std::vector<std::shared_ptr<symbol>> types;
+    int bytes;
+
+    std::string json() const {
+        std::string result = "{\"bytes\": " + std::to_string(bytes) + ", \"tuple\":[";
+        for (size_t i = 0; i < sizes.size(); ++i) {
+            result += std::to_string(sizes[i]);
+            if (i < sizes.size() - 1) result += ", ";
+        }
+        result += "]}";
+        return result;
+    }
 };
 
 class SymbolTable {
@@ -80,6 +102,7 @@ public:
             {"i128",  morgana_integer(128, true) },
             {"i256",  morgana_integer(256, true) },
 
+            {"ptr",      morgana_integer((sizeof(void*) * 8),  true) },
             {"gpio_pin", morgana_strong_alias(morgana_integer(16, false), MCU_READ_WRITE_CONTEXTS) }
         });
     }

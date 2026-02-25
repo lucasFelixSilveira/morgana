@@ -31,6 +31,7 @@
 #include "parser/type.hpp"
 #include "parser/types/integer.hpp"
 #include "parser/types/bool.hpp"
+#include "parser/types/tuple.hpp"
 #include "parser/types/validator.hpp"
 
 std::vector<std::string> mocks;
@@ -65,10 +66,12 @@ enum ParseResultKind {
 
     Loop               = 700,
 
+    AddInPtr           = 800,
+
     // MCUs nodes
-    GPIO               = 1001,
-    Turn               = 1002,
-    Read               = 1003,
+    GPIO               = 10001,
+    Turn               = 10002,
+    Read               = 10003,
 };
 
 using ParseResult = std::tuple<ParseResultKind, std::variant<
@@ -82,11 +85,13 @@ using ParseResult = std::tuple<ParseResultKind, std::variant<
     loop,
     simplebranch,
     branchmeasure,
+    tuple,
     declaration<gpio>,
     declaration<call>,
     declaration<mcu_read>,
     declaration<morgana_operation>,
-    declaration<symbol>
+    declaration<symbol>,
+    declaration<addinptr>
 >>;
 
 using ParseResults = std::vector<ParseResult>;
@@ -267,14 +272,42 @@ ParseResults parse(std::vector<std::string>& tokens) {
                 if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
 
                 symbol data = *opt_data;
-                if(! std::holds_alternative<morgana_allocation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
-                morgana_allocation allocation = std::get<morgana_allocation>(data);
 
-                std::string value = getnext(tokens, i);
-                validation check;
-                if( check = check_valid(*allocation.type, value, ctx); !std::get<0>(check) ) sys_err("store", value, *allocation.type, true);
+                if( std::holds_alternative<morgana_allocation>(data) ) {
+                    morgana_allocation allocation = std::get<morgana_allocation>(data);
 
-                results.push_back({ ParseResultKind::Store, storage(identifier, value) });
+                    std::string value = getnext(tokens, i);
+                    validation check;
+                    if( check = check_valid(*allocation.type, value, ctx); !std::get<0>(check) ) sys_err("store", value, *allocation.type, true);
+
+                    results.push_back({ ParseResultKind::Store, storage(identifier, value) });
+                    i--;
+                    continue;
+                }
+
+                if( std::holds_alternative<morgana_addinptr>(data) ) {
+                    addinptr address = *std::get<morgana_addinptr>(data);
+
+                    std::string allocation_identifier = first(address);
+                    auto opt_data = symbol_table.lookup(allocation_identifier);
+                    if(! std::holds_alternative<morgana_allocation>(*opt_data) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
+                    morgana_allocation allocation = std::get<morgana_allocation>(*opt_data);
+                    if(! std::holds_alternative<morgana_tuple>(*allocation.type) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
+                    morgana_tuple into = std::get<morgana_tuple>(*allocation.type);
+
+                    std::string value = getnext(tokens, i);
+                    validation check;
+                    if( check = check_valid(*into.types.at(second(address)), value, ctx); !std::get<0>(check) ) sys_err("store", value, *into.types.at(second(address)), true);
+
+                    results.push_back({ ParseResultKind::Store, storage(identifier, value) });
+                    i--;
+                    continue;
+                }
+
+                CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
                 i--;
             } continue;
 
@@ -452,7 +485,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             symbol data = *opt_data;
                             symbol_table.insert(token, morgana_allocation { token, std::make_shared<symbol>(data) });
 
-                            if(! first(is_type(type)) ) CompilerOutputs::Fatal("Invalid symbol type: " + type);
+                            if(! first(is_type(type)) && !std::holds_alternative<morgana_tuple>(*opt_data) ) CompilerOutputs::Fatal("Invalid symbol type: " + type);
                             results.push_back({ ParseResultKind::Alloc, declaration<symbol> { token, data } });
                             i--;
                         } continue;
@@ -466,8 +499,10 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + alloc);
 
                             symbol data = *opt_data;
-                            if(! std::holds_alternative<morgana_allocation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + alloc);
-                            morgana_allocation allocation = std::get<morgana_allocation>(data);
+                            if(!(
+                                   std::holds_alternative<morgana_allocation>(data)
+                                || std::holds_alternative<morgana_addinptr>(data)
+                            )) CompilerOutputs::Fatal("Invalid symbol: " + alloc);
 
                             symbol_table.insert(token, alloc);
                             results.push_back({ ParseResultKind::Load, declaration<std::string> { token, alloc } });
@@ -486,37 +521,45 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             if(! (is_identifier(rhs) || is_number(rhs)) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
 
                             if(! is_number(lhs) ) {
-                                 auto opt_data = symbol_table.lookup(lhs);
-                                 symbol data = *opt_data;
-                                 if( std::holds_alternative<morgana_operation>(data) ) goto already_checked;
-                                 if(! std::holds_alternative<morgana_load>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
+                                auto opt_data = symbol_table.lookup(lhs);
+                                symbol data = *opt_data;
+                                if( std::holds_alternative<morgana_operation>(data) ) goto already_checked_1;
+                                if(! std::holds_alternative<morgana_load>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
 
-                                 auto identifier = std::get<morgana_load>(data);
-                                 opt_data = symbol_table.lookup(identifier);
-                                 if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
+                                auto identifier = std::get<morgana_load>(data);
+                                opt_data = symbol_table.lookup(identifier);
+                                if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
 
-                                 symbol alloc = *opt_data;
-                                 if(! std::holds_alternative<morgana_allocation>(alloc) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
-                                 morgana_allocation allocation = std::get<morgana_allocation>(alloc);
+                                symbol alloc = *opt_data;
+                                if( std::holds_alternative<morgana_allocation>(alloc) ) {
+                                    morgana_allocation allocation = std::get<morgana_allocation>(alloc);
 
-                                 if(! std::holds_alternative<morgana_integer>(*allocation.type) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
+                                    if(! std::holds_alternative<morgana_integer>(*allocation.type) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
+                                }
+
+                                 if(! std::holds_alternative<morgana_addinptr>(alloc) ) CompilerOutputs::Fatal("Invalid symbol: " + lhs);
                             }
 
+                            already_checked_1: {};
+
                             if(! is_number(rhs) ) {
-                                 auto opt_data = symbol_table.lookup(rhs);
-                                 symbol data = *opt_data;
-                                 if( std::holds_alternative<morgana_operation>(data) ) goto already_checked;
-                                 if(! std::holds_alternative<morgana_load>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
+                                auto opt_data = symbol_table.lookup(rhs);
+                                symbol data = *opt_data;
+                                if( std::holds_alternative<morgana_operation>(data) ) goto already_checked;
+                                if(! std::holds_alternative<morgana_load>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
 
-                                 auto identifier = std::get<morgana_load>(data);
-                                 opt_data = symbol_table.lookup(identifier);
-                                 if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
+                                auto identifier = std::get<morgana_load>(data);
+                                opt_data = symbol_table.lookup(identifier);
+                                if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
 
-                                 symbol alloc = *opt_data;
-                                 if(! std::holds_alternative<morgana_allocation>(alloc) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
-                                 morgana_allocation allocation = std::get<morgana_allocation>(alloc);
+                                symbol alloc = *opt_data;
+                                if( std::holds_alternative<morgana_allocation>(alloc) ) {
+                                    morgana_allocation allocation = std::get<morgana_allocation>(alloc);
 
-                                 if(! std::holds_alternative<morgana_integer>(*allocation.type) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
+                                    if(! std::holds_alternative<morgana_integer>(*allocation.type) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
+                                }
+
+                                if(! std::holds_alternative<morgana_addinptr>(alloc) ) CompilerOutputs::Fatal("Invalid symbol: " + rhs);
                             }
 
                             already_checked: {};
@@ -524,6 +567,54 @@ ParseResults parse(std::vector<std::string>& tokens) {
                             morgana_operation operation(instruction, lhs, rhs);
                             symbol_table.insert(token, operation);
                             results.push_back({ ParseResultKind::Operation, declaration<morgana_operation> { token, operation } });
+                            i--;
+                        } continue;
+
+                        case ADDINPTR_INSTRUCTION: {
+                            ctx = context::ALL_ADDINPTR_INSTRUCTION;
+
+                            std::string identifier = getnext(tokens, i);
+                            if(! is_identifier(identifier) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
+                            auto opt_data = symbol_table.lookup(identifier);
+                            if( !opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+                            if(! std::holds_alternative<morgana_allocation>(*opt_data) ) CompilerOutputs::Fatal("Invalid symbol: " + identifier);
+
+                            std::string bytes = getnext(tokens, i);
+                            if(! is_number(bytes) ) CompilerOutputs::Fatal("Invalid addinptr instruction. addinptr instruction needs the number of bytes who will be added in the pointer in the second position");
+
+                            declaration<addinptr> info = { token, { identifier, std::stoi(bytes) } };
+                            symbol_table.insert(token, std::make_shared<addinptr>(second(info)));
+                            results.push_back({ ParseResultKind::AddInPtr, info });
+                            i--;
+                        } continue;
+
+                        case TUPLE_INSTRUCTION: {
+                            ctx = context::ALL_TUPLE_INSTRUCTION;
+
+                            std::vector<std::shared_ptr<symbol>> types;
+                            std::vector<int> bytes;
+                            int size = 0;
+                            auto delimiter = [&](){ CompilerOutputs::Fatal("Invalid tuple declaration. All tuples need a block, delimited with '[' and ']'. with the types into it."); };
+
+                            std::string open = getnext(tokens, i);
+                            if( open != "[") delimiter();
+
+                            while(true) {
+                                std::string data = getnext(tokens, i);
+                                if( data == "]" ) break;
+
+                                auto opt_data = symbol_table.lookup(data);
+                                types.push_back(std::make_shared<symbol>(*opt_data));
+                                if(! opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + data);
+                                if( std::holds_alternative<morgana_integer>(*opt_data) ) {
+                                    auto type = std::get<morgana_integer>(*opt_data);
+                                    bytes.push_back(type.bits / 8);
+                                    size += type.bits / 8;
+                                }
+                            }
+
+                            symbol_table.insert(token, morgana_tuple{ bytes, types, size });
                             i--;
                         } continue;
 

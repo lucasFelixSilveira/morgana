@@ -25,6 +25,8 @@
 #define BRANCH_LESS_EQUAL_KEYWORD 20
 #define BRANCH_GRANT_KEYWORD 21
 #define BRANCH_LESS_KEYWORD 22
+#define TUPLE_INSTRUCTION 23
+#define ADDINPTR_INSTRUCTION 24
 
 #define DEFINE_LABEL 10000
 
@@ -62,6 +64,9 @@ int make_it_integer(const std::string& str) {
     if( str == "sub" ) return SUB_INSTRUCTION;
     if( str == "div" ) return SUB_INSTRUCTION;
     if( str == "mul" ) return SUB_INSTRUCTION;
+
+    if( str == "tuple" ) return TUPLE_INSTRUCTION;
+    if( str == "addinptr" ) return ADDINPTR_INSTRUCTION;
 
     return -1;
 }

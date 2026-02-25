@@ -50,18 +50,23 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	sub $16, %rsp
-	movl $73, -4(%rbp)
-	movw $73, -6(%rbp)
-	movl -4(%rbp), %eax
-	movw -4(%rbp), %bx
-	movzx %bx, %ebx
-	cmpq %rax, %rbx
-	jl .main_pular
+	sub $32, %rsp
+	movw $2, -6(%rbp)
+	movq $0, %rax
+	movw -6(%rbp), %ax
+	movzx %ax, %eax
+	addq $3, %rax
+	movq %rax, -14(%rbp)
+	movq $0, %rax
+	movq -14(%rbp), %rax
+	subq $5, %rax
+	movq %rax, -22(%rbp)
+	cmpq $0, -22(%rbp)
+	jne .main_zero
 	incq %r15
 	call __morgana_alert
 
-.main_pular:
+.main_zero:
 	movq %rax, %rdi
 .LFE0:
 	.size main, .LFE0 - main
