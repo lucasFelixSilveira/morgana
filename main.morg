@@ -1,2 +1,6 @@
-i32 main() {
+
+i8 main() {
+_0 = alloc i32
+e0 = add 12 3
+store _0 e0
 }

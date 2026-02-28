@@ -277,6 +277,17 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     morgana_allocation allocation = std::get<morgana_allocation>(data);
 
                     std::string value = getnext(tokens, i);
+                    if( is_identifier(value) ) {
+                        opt_data = symbol_table.lookup(value);
+                        if( !opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + value);
+
+                        symbol data = *opt_data;
+                        if(! std::holds_alternative<morgana_operation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + value);
+
+                        results.push_back({ ParseResultKind::Store, storage(identifier, value) });
+                        continue;
+                    }
+
                     validation check;
                     if( check = check_valid(*allocation.type, value, ctx); !std::get<0>(check) ) sys_err("store", value, *allocation.type, true);
 
