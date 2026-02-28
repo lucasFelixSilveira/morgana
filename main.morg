@@ -1,17 +1,2 @@
-test = tuple [ i32 i16 ]
-
 i32 main() {
-    x = alloc test
-    addr = addinptr x 1
-    store addr 2
-    value = load addr
-    z = add value 3
-
-    y = sub z 5
-    brnez y zero
-    alert
-
-    ::zero::
-
-    ret
 }

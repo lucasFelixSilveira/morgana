@@ -286,6 +286,13 @@ static int morgana_next(lua_State* L) {
     if(! current_iterator || current_iterator->ast.empty() ) {
         lua_pushnil(L);
         lua_pushstring(L, "No AST available or empty AST");
+
+        if( iterators.size() > 0 ) {
+            auto restored = iterators.top();
+            iterators.pop();
+            current_iterator = restored;
+        }
+
         return 2;
     }
 
@@ -296,8 +303,9 @@ static int morgana_next(lua_State* L) {
             return 2;
         }
 
-        current_iterator = iterators.top();
+        auto restored = iterators.top();
         iterators.pop();
+        current_iterator = restored;
 
         if(! current_iterator || current_iterator->ast.empty() ) {
             lua_pushnil(L);
