@@ -1,449 +1,182 @@
 #pragma once
 
-#include "compiler_outputs.hpp"
-#include "libs/linux/include/lua.hpp"
-#include "params.hpp"
-#include "extensors/runtime.hpp"
-#include "parser.hpp"
-#include "parser/comp.hpp"
-#include "parser/declaration.hpp"
-#include "parser/storage.hpp"
-#include "parser/symbols.hpp"
-#include "parser/types/integer.hpp"
-#include "parser/types/strong_alias.hpp"
-#include <sstream>
 #include <string>
-#include <unistd.h>
-#include <variant>
-#include <vector>
-#include <memory>
+#include <map>
+#include <cstdint>
+#include <algorithm>
 
-struct ASTIterator {
-    ParseResults ast;
-    size_t current_index;
+#if defined(_WIN32)
+    #include <intrin.h>
+#elif defined(__linux__) || defined(__ANDROID__)
+    #include <sys/auxv.h>
+#endif
+
+#if defined(__arm__) || defined(__aarch64__)
+    #if defined(__linux__)
+        #include <asm/hwcap.h>
+    #endif
+#endif
+
+enum class CSyscall {
+    READ, WRITE, OPEN, CLOSE, EXIT, EXECVE, MMAP, MUNMAP,
+    FORK, VFORK, SOCKET, BIND, LISTEN, ACCEPT, CONNECT,
+    UNKNOWN
 };
 
-enum LUAT {
-    LUA_INTEGER_STRING,
-    LUA_TEXT_STRING,
+CSyscall syscallFromString(const std::string& name) {
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+    if (lower == "read")    return CSyscall::READ;
+    if (lower == "write")   return CSyscall::WRITE;
+    if (lower == "open")    return CSyscall::OPEN;
+    if (lower == "close")   return CSyscall::CLOSE;
+    if (lower == "exit")    return CSyscall::EXIT;
+    if (lower == "execve")  return CSyscall::EXECVE;
+    if (lower == "mmap")    return CSyscall::MMAP;
+    if (lower == "munmap")  return CSyscall::MUNMAP;
+    if (lower == "fork")    return CSyscall::FORK;
+    if (lower == "vfork")   return CSyscall::VFORK;
+    if (lower == "socket")  return CSyscall::SOCKET;
+    if (lower == "bind")    return CSyscall::BIND;
+    if (lower == "listen")  return CSyscall::LISTEN;
+    if (lower == "accept")  return CSyscall::ACCEPT;
+    if (lower == "connect") return CSyscall::CONNECT;
+    return CSyscall::UNKNOWN;
+}
+
+using SyscallTable = std::map<std::string, int>;
+
+static const SyscallTable linux_x86_64 = {
+    {"read", 0}, {"write", 1}, {"open", 2}, {"close", 3}, {"exit", 60},
+    {"execve", 59}, {"mmap", 9}, {"munmap", 11}, {"fork", 57}, {"vfork", 58},
+    {"socket", 41}, {"connect", 42}, {"accept", 43}, {"bind", 49}, {"listen", 50}
 };
 
-#define JSON_ENCODER(ss, vec, constructor)                                    \
-    {                                                                         \
-        auto build = [&](auto& iter) -> std::string constructor;              \
-        ss << "{ \"data\": [";                                                \
-        bool first = true;                                                    \
-        for( auto iter : vec ) {                                              \
-            ss << ((first) ? "" : ", ") << build(iter) << "";                 \
-            if( first ) first = !first;                                       \
-        };                                                                    \
-        ss << "] }";                                                          \
-    }
+static const SyscallTable linux_i386 = {
+    {"read", 3}, {"write", 4}, {"open", 5}, {"close", 6}, {"exit", 1},
+    {"execve", 11}, {"mmap", 192}, {"munmap", 91}, {"fork", 2}
+};
 
-#define CALL_FIELD_FOR_SYMBOLS(ret, symbol, field)                            \
-    [&]() -> ret {                                                            \
-        if( std::holds_alternative<morgana_integer>(symbol) )                 \
-        /* -> */ return std::get<morgana_integer>(symbol).field();            \
-        if( std::holds_alternative<morgana_tuple>(symbol) )                   \
-        /* -> */ return std::get<morgana_tuple>(symbol).field();              \
-        return ret();                                                         \
-    }()
+static const SyscallTable linux_aarch64 = {
+    {"read", 63}, {"write", 64}, {"openat", 56}, {"close", 57}, {"exit", 93},
+    {"execve", 221}, {"mmap", 222}, {"munmap", 215}, {"fork", 220}, {"vfork", 219},
+    {"socket", 198}, {"connect", 203}, {"accept", 202}, {"bind", 200}, {"listen", 201}
+};
 
-std::stack<std::shared_ptr<ASTIterator>> iterators;
-std::shared_ptr<ASTIterator> current_iterator = nullptr;
+static const SyscallTable linux_arm = {
+    {"read", 3}, {"write", 4}, {"open", 5}, {"close", 6}, {"exit", 1},
+    {"execve", 11}, {"mmap2", 192}, {"munmap", 91}, {"fork", 2}
+};
 
-static void morgana_push_ctx(std::vector<std::string> ctx) {
-    if( current_iterator ) {
-        auto saved_iterator = std::make_shared<ASTIterator>();
-        saved_iterator->ast = current_iterator->ast;
-        saved_iterator->current_index = current_iterator->current_index;
-        iterators.push(saved_iterator);
-    }
+static const SyscallTable windows_nt_x64 = {
+    {"NtReadFile", 6}, {"NtWriteFile", 8}, {"NtOpenFile", 0x55},
+    {"NtClose", 0x0C}, {"NtCreateFile", 0x55}, {"NtTerminateProcess", 0x2C},
+    {"NtAllocateVirtualMemory", 0x18}, {"NtFreeVirtualMemory", 0x1E}
+};
 
-    auto new_iterator = std::make_shared<ASTIterator>();
-    new_iterator->ast = parse(ctx);
-    new_iterator->current_index = 0;
-    current_iterator = new_iterator;
+struct SystemInfo {
+    std::string os = "Unknown";
+    std::string arch = "Unknown";
+    SyscallTable syscall_table;
+
+    bool has_sse     = false;
+    bool has_sse2    = false;
+    bool has_sse3    = false;
+    bool has_ssse3   = false;
+    bool has_sse41   = false;
+    bool has_sse42   = false;
+    bool has_avx     = false;
+    bool has_avx2    = false;
+    bool has_avx512f = false;
+
+    bool has_neon = false;
+    bool has_sve  = false;
+};
+
+inline void cpuid(int cpuinfo[4], int leaf, int subleaf = 0) {
+#if defined(_WIN32)
+    if (subleaf == 0) __cpuid(cpuinfo, leaf);
+    else              __cpuidex(cpuinfo, leaf, subleaf);
+#else
+    __asm__ volatile (
+        "cpuid"
+        : "=a"(cpuinfo[0]), "=b"(cpuinfo[1]),
+          "=c"(cpuinfo[2]), "=d"(cpuinfo[3])
+        : "a"(leaf), "c"(subleaf)
+    );
+#endif
 }
 
-static bool file_exists(const std::string& path) {
-    return access(path.c_str(), R_OK) == 0;
-}
+inline SystemInfo detectSystemInfo() {
+    SystemInfo info;
 
-static std::string find_lua_module(const std::string& dir, const std::string& modname) {
-    std::string modpath = modname;
-    std::replace(modpath.begin(), modpath.end(), '.', '/');
+#if defined(_WIN32)
+    info.os = "Windows";
+#elif defined(__linux__) || defined(__ANDROID__)
+    info.os = "Linux";
+#elif defined(__APPLE__)
+    info.os = "macOS";
+#endif
 
-    std::vector<std::string> candidates = {
-        dir + modname + ".lua",
-        dir + modname + "/init.lua"
-    };
+#if defined(__x86_64__) || defined(_M_X64)
+    info.arch = "x86_64";
+#elif defined(__i386__) || defined(_M_IX86)
+    info.arch = "x86";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    info.arch = "aarch64";
+#elif defined(__arm__)
+    info.arch = "arm";
+#endif
 
-    for( const auto& candidate : candidates )
-        if( file_exists(candidate) ) return candidate;
-
-    return "";
-}
-
-static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
-    lua_newtable(L);
-
-    lua_pushinteger(L, first(node));
-    lua_setfield(L, -2, "kind");
-
-    switch(first(node)) {
-        case ParseResultKind::Function: {
-            auto data = std::get<function>(second(node));
-            std::stringstream ss;
-
-            // append the current iterator on the stack
-            // and then put the function iterator on the
-            // current_iterator global variable
-            morgana_push_ctx(data.body);
-
-            // store the function name on the table
-            // for lua know all the IDs of the function
-            lua_pushstring(L, data.name.c_str());
-            lua_setfield(L, -2, "name");
-
-            // store the function parameters type
-            // using JSON encoder
-            JSON_ENCODER(ss, data.argst, {
-                if( std::holds_alternative<morgana_strong_alias>(iter) ) {
-                    auto data = std::get<0>(std::get<morgana_strong_alias>(iter));
-                    if( std::holds_alternative<morgana_integer>(data) ) {
-                        auto x = std::get<morgana_integer>(data);
-                        iter = symbol(x);
-                    }
-                }
-
-                if( std::holds_alternative<morgana_integer>(iter) ) return std::get<morgana_integer>(iter).json();
-                return std::string();
-            });
-            lua_pushstring(L, ss.str().c_str());
-            lua_setfield(L, -2, "params");
-
-            ss.str("");
-            ss.clear();
-        } break;
-
-        case ParseResultKind::Loop: {
-            auto data = std::get<loop>(second(node));
-
-            // append the current iterator on the stack
-            // and then put the loop iterator on the
-            // current_iterator global variable
-            morgana_push_ctx(data.body);
-        } break;
-
-        case ParseResultKind::BranchEqualZero:
-        case ParseResultKind::BranchNotEqualZero: {
-            auto data = std::get<simplebranch>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            lua_pushstring(L, second(data).c_str());
-            lua_setfield(L, -2, "label");
-        } break;
-
-        case ParseResultKind::BranchGrant:
-        case ParseResultKind::BranchLess:
-        case ParseResultKind::BranchGrantEqual:
-        case ParseResultKind::BranchLessEqual: {
-            auto data = std::get<branchmeasure>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "first");
-
-            lua_pushstring(L, second(data).c_str());
-            lua_setfield(L, -2, "second");
-
-            lua_pushstring(L, third(data).c_str());
-            lua_setfield(L, -2, "label");
-        } break;
-
-        case ParseResultKind::Branch: {
-            auto data = std::get<std::string>(second(node));
-
-            lua_pushstring(L, data.c_str());
-            lua_setfield(L, -2, "label");
-        } break;
-
-        case ParseResultKind::Label: {
-            auto data = std::get<std::string>(second(node));
-
-            lua_pushstring(L, data.c_str());
-            lua_setfield(L, -2, "identifier");
-        } break;
-
-        case ParseResultKind::AddInPtr: {
-            auto data = std::get<declaration<addinptr>>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            addinptr into = second(data);
-            lua_pushstring(L, first(into).c_str());
-            lua_setfield(L, -2, "address");
-
-            lua_pushinteger(L, second(into));
-            lua_setfield(L, -2, "offset");
-        } break;
-
-        case ParseResultKind::Wait:
-        case ParseResultKind::WaitMS: {
-            auto data = std::get<int>(second(node));
-
-            // calculate the delay in milliseconds
-            // considering the base unit is seconds
-            // for the `wait` keyword.
-            const int second = 1000;
-            int base = ParseResultKind::Wait == first(node);
-            int mul = base * second + !base;
-            lua_pushinteger(L, data * mul);
-            lua_setfield(L, -2, "ms");
-        } break;
-
-        case ParseResultKind::Turn: {
-            auto data = std::get<turn>(second(node));
-
-            lua_pushinteger(L, data.pin);
-            lua_setfield(L, -2, "pin");
-
-            lua_pushboolean(L, data.toggle);
-            lua_setfield(L, -2, "toggle");
-        } break;
-
-        case ParseResultKind::Read: {
-            auto data = std::get<declaration<mcu_read>>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            lua_pushinteger(L, first(second(data)));
-            lua_setfield(L, -2, "pin");
-
-            lua_pushboolean(L, second(second(data)));
-            lua_setfield(L, -2, "digital");
-        } break;
-
-        case ParseResultKind::Alloc: {
-            auto data = std::get<declaration<symbol>>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            auto type = second(data);
-            auto json = CALL_FIELD_FOR_SYMBOLS(std::string, type, json);
-            lua_pushstring(L, json.c_str());
-            lua_setfield(L, -2, "type");
-        } break;
-
-        case ParseResultKind::Load: {
-            auto data = std::get<declaration<std::string>>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            lua_pushstring(L, second(data).c_str());
-            lua_setfield(L, -2, "source");
-        } break;
-
-        case ParseResultKind::Store: {
-            auto data = std::get<storage>(second(node));
-
-            lua_pushstring(L, data.identifier.c_str());
-            lua_setfield(L, -2, "identifier");
-
-            lua_pushstring(L, data.value.c_str());
-            lua_setfield(L, -2, "value");
-        } break;
-
-        case ParseResultKind::Operation: {
-            auto data = std::get<declaration<morgana_operation>>(second(node));
-
-            lua_pushstring(L, first(data).c_str());
-            lua_setfield(L, -2, "identifier");
-
-            auto info = second(data);
-
-            lua_pushstring(L, info.instruction.c_str());
-            lua_setfield(L, -2, "instruction");
-
-            lua_pushstring(L, info.lhs.c_str());
-            lua_setfield(L, -2, "lhs");
-
-            lua_pushstring(L, info.rhs.c_str());
-            lua_setfield(L, -2, "rhs");
-        } break;
-
-        default: break;
+    if (info.os == "Linux") {
+        if      (info.arch == "x86_64")  info.syscall_table = linux_x86_64;
+        else if (info.arch == "x86")     info.syscall_table = linux_i386;
+        else if (info.arch == "aarch64") info.syscall_table = linux_aarch64;
+        else if (info.arch == "arm")     info.syscall_table = linux_arm;
     }
-}
-
-static int morgana_next(lua_State* L) {
-    if(! current_iterator || current_iterator->ast.empty() ) {
-        lua_pushnil(L);
-        lua_pushstring(L, "No AST available or empty AST");
-
-        if( iterators.size() > 0 ) {
-            auto restored = iterators.top();
-            iterators.pop();
-            current_iterator = restored;
-        }
-
-        return 2;
+    else if (info.os == "Windows" && info.arch == "x86_64") {
+        info.syscall_table = windows_nt_x64;
     }
 
-    if( current_iterator->current_index >= current_iterator->ast.size() ) {
-        if (iterators.empty()) {
-            lua_pushnil(L);
-            lua_pushstring(L, "End of AST");
-            return 2;
-        }
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+    int regs[4]{};
+    cpuid(regs, 0);
+    int max_leaf = regs[0];
 
-        auto restored = iterators.top();
-        iterators.pop();
-        current_iterator = restored;
+    if (max_leaf >= 1) {
+        cpuid(regs, 1);
+        info.has_sse     = (regs[3] & (1 << 25)) != 0;
+        info.has_sse2    = (regs[3] & (1 << 26)) != 0;
+        info.has_sse3    = (regs[2] & (1 << 0))  != 0;
+        info.has_ssse3   = (regs[2] & (1 << 9))  != 0;
+        info.has_sse41   = (regs[2] & (1 << 19)) != 0;
+        info.has_sse42   = (regs[2] & (1 << 20)) != 0;
+        info.has_avx     = (regs[2] & (1 << 28)) != 0;
 
-        if(! current_iterator || current_iterator->ast.empty() ) {
-            lua_pushnil(L);
-            lua_pushstring(L, "No AST after restoration");
-            return 2;
-        }
-
-        if( current_iterator->current_index >= current_iterator->ast.size() ) {
-            lua_pushnil(L);
-            lua_pushstring(L, "Restored iterator also finished");
-            return 2;
+        if (max_leaf >= 7) {
+            cpuid(regs, 7, 0);
+            info.has_avx2    = (regs[1] & (1 << 5))  != 0;
+            info.has_avx512f = (regs[1] & (1 << 16)) != 0;
         }
     }
+#endif
 
-    auto node = current_iterator->ast.at(current_iterator->current_index);
-    current_iterator->current_index++;
+#if defined(__linux__) || defined(__ANDROID__)
+    #if defined(__arm__) || defined(__aarch64__)
+        unsigned long hwcap = getauxval(AT_HWCAP);
 
-    push_ast_node_to_lua(L, node);
-    return 1;
-}
+        #if defined(__aarch64__)
+            info.has_neon = (hwcap & (1UL << 1)) != 0;
+        #else
+            info.has_neon = (hwcap & (1UL << 12)) != 0;
+        #endif
 
-static int morgana_reset(lua_State* L) {
-    lua_pushboolean(L, true);
-    return 1;
-}
+        #ifdef HWCAP_SVE
+            info.has_sve = (hwcap & HWCAP_SVE) != 0;
+        #endif
+    #endif
+#endif
 
-static int morgana_require(lua_State* L) {
-    const char* modname = luaL_checkstring(L, 1);
-
-    lua_getfield(L, LUA_REGISTRYINDEX, "morgana_extensor_dir");
-    const char* dir_cstr = lua_tostring(L, -1);
-    std::string dir = dir_cstr ? dir_cstr : "./";
-    lua_pop(L, 1);
-
-    std::string module_file = find_lua_module(dir, modname);
-
-    if( module_file.empty() ) {
-        lua_pushnil(L);
-        lua_pushfstring(L, "module '%s' not found in '%s'", modname, dir.c_str());
-        return 2;
-    }
-
-    if( luaL_loadfile(L, module_file.c_str()) != LUA_OK ) return lua_error(L);
-
-    lua_call(L, 0, 1);
-    return 1;
-}
-
-std::string codegen(CompilerParams& params, ParseResults ast) {
-    std::string path = Runtime::get_executable_path("morgana");
-    auto [extensorExists, extensorPath] = Runtime::check_extensors(path, params.target);
-
-    if(! extensorExists ) {
-        CompilerOutputs::Fatal("No extensor found for target: " + params.target);
-        return "";
-    }
-
-    CompilerOutputs::Info("Extensor found: " + extensorPath);
-    CompilerOutputs::Info("Generating code via extensor");
-
-    while (!iterators.empty()) iterators.pop();
-
-    current_iterator = std::make_shared<ASTIterator>();
-    current_iterator->ast = ast;
-    current_iterator->current_index = 0;
-
-    lua_State *L = luaL_newstate();
-    if (!L) {
-        CompilerOutputs::Fatal("Failed to create Lua state");
-        return "";
-    }
-
-    luaL_openlibs(L);
-
-    std::string extensorDir = extensorPath;
-    size_t lastSlash = extensorDir.find_last_of("/\\");
-    if (lastSlash != std::string::npos) extensorDir = extensorDir.substr(0, lastSlash + 1);
-    else extensorDir = "./";
-
-    lua_newtable(L);
-
-    // Adiciona morgana.require
-    lua_pushcfunction(L, morgana_require);
-    lua_setfield(L, -2, "require");
-
-    // Adiciona morgana.next
-    lua_pushcfunction(L, morgana_next);
-    lua_setfield(L, -2, "next");
-
-    // Adiciona morgana.reset
-    lua_pushcfunction(L, morgana_reset);
-    lua_setfield(L, -2, "reset");
-
-    lua_setglobal(L, "morgana");
-
-    lua_pushstring(L, extensorDir.c_str());
-    lua_setfield(L, LUA_REGISTRYINDEX, "morgana_extensor_dir");
-
-    if( luaL_loadfile(L, extensorPath.c_str()) != LUA_OK ) {
-        CompilerOutputs::Fatal("Failed to load extensor: " + std::string(lua_tostring(L, -1)));
-        lua_close(L);
-        return "";
-    }
-
-    if( lua_pcall(L, 0, 0, 0) != LUA_OK ) {
-        CompilerOutputs::Fatal("Error running extensor: " + std::string(lua_tostring(L, -1)));
-        lua_close(L);
-        return "";
-    }
-
-    lua_getglobal(L, "codegen");
-    if(! lua_isfunction(L, -1) ) {
-        CompilerOutputs::Fatal("Function 'codegen' not found in extensor");
-        lua_close(L);
-        return "";
-    }
-
-    lua_pushnil(L);
-
-    if( lua_pcall(L, 1, 1, 0) != LUA_OK ) {
-        CompilerOutputs::Fatal("Error in codegen: " + std::string(lua_tostring(L, -1)));
-        lua_close(L);
-        return "";
-    }
-
-    if(! lua_isstring(L, -1) ) {
-        CompilerOutputs::Fatal("codegen must return a string");
-        lua_close(L);
-        return "";
-    }
-
-    std::string result = lua_tostring(L, -1);
-    lua_close(L);
-
-    // Limpar após uso
-    current_iterator.reset();
-    while(! iterators.empty() ) iterators.pop();
-
-    CompilerOutputs::Info("Code generation completed");
-    return result;
+    return info;
 }

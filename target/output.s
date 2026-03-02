@@ -5,22 +5,16 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	sub $48, %rsp
+	sub $32, %rsp
 	movq $0, %rax
 	movq $246, -12(%rbp)
-	movq $82, %rax
-	imulq $3, %rax
-	movq %rax, -20(%rbp)
 	movq $0, %rax
-	movq $44, -28(%rbp)
-	movq $12, %rax
-	addq $32, %rax
-	movq %rax, -36(%rbp)
+	movq $44, -20(%rbp)
 	movq $0, %rax
-	movq -36(%rbp), %rax
-	addq -20(%rbp), %rax
-	movq %rax, -44(%rbp)
-	movl -44(%rbp), %eax
+	movq -20(%rbp), %rax
+	addq -12(%rbp), %rax
+	movq %rax, -28(%rbp)
+	movl -28(%rbp), %eax
 	movl %eax, -4(%rbp)
 .LFE0:
 	.size main, .LFE0 - main
