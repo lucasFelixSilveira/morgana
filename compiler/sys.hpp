@@ -36,7 +36,7 @@ inline void cpuid(int cpuinfo[4], int leaf, int subleaf = 0) {
 #if defined(_WIN32)
     if (subleaf == 0) __cpuid(cpuinfo, leaf);
     else              __cpuidex(cpuinfo, leaf, subleaf);
-#else
+#elif not(defined(__arm__) || defined(__aarch64__))
     __asm__ volatile (
         "cpuid"
         : "=a"(cpuinfo[0]), "=b"(cpuinfo[1]),
