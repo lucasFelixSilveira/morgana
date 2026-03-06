@@ -34,7 +34,7 @@ What is extensors?
 Extensors are extensions to Morgana codegen, which allow you to add your custom instructions, types, and optimizations to the language.
 
 - `I need implement my own extensors?`: No, you can use the official extensors, third-party extensors or even write your own.
-- `How can i write my own extensors?`: You can write your own extensors using the pattern who is teach on the [Morgana Extensors](https://github.com/Carla-corp/extensors) repository.
+- `How can i write my own extensors?`: You can write your own extensors using [Runa](https://github.com/lucasFelixSilveira/runa) and the pattern who is teach on the [Morgana Extensors](https://github.com/Carla-corp/extensors) repository.
 - `I can write without overriding any of the existing extensors?`: Yes, you can write your own extensors without overriding any of the existing ones. Compiling with the flag `-o`
 
 ```sh-session
