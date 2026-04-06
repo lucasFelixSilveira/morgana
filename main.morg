@@ -1,8 +1,7 @@
-
-i8 main() {
-_0 = alloc i32
-e0 = mul 82 3
-e1 = add 12 32
-e2 = add e1 e0
-store _0 e2
+i8 _start() {
+    x = alloc i32
+    y = alloc i16
+    store x 12
+    z = load x
+    store y z
 }

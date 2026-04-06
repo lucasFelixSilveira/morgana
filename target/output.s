@@ -1,36 +1,18 @@
-.text
-.globl main
-.type main, @function
-main:
+.globl _start
+_start:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	sub $32, %rsp
-	movq $0, %rax
-	movq $246, -12(%rbp)
-	movq $0, %rax
-	movq $44, -20(%rbp)
-	movq $0, %rax
-	movq -20(%rbp), %rax
-	addq -12(%rbp), %rax
-	movq %rax, -28(%rbp)
-	movl -28(%rbp), %eax
-	movl %eax, -4(%rbp)
+	subq $8, %rsp
+	movl $12, -4(%rbp)
+	movl -4(%rbp), %eax
+	movw %ax, -6(%rbp)
+
+	movq %rax, %rdi
+	movq $60, %rax
+	syscall
 .LFE0:
-	.size main, .LFE0 - main
+	.size _start, .LFE0 - _start
 	movq %rdi, %rax
 	leave
 	ret
-.text
-.type _start, @function
-.globl _start
-_start:
-    pushq %rbp
-    movq %rsp, %rbp
-    sub $16, %rsp
-    call main
-
-    movq %rax, %rdi
-    movq $60, %rax
-    syscall
-

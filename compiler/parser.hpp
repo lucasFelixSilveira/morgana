@@ -40,6 +40,8 @@ int ctx;
 enum ParseResultKind {
     none = -1,
 
+    Epilogue           = 10,
+
     Desconstructor     = 100,
     Function           = 101,
     Call               = 102,
@@ -282,7 +284,7 @@ ParseResults parse(std::vector<std::string>& tokens) {
                         if( !opt_data ) CompilerOutputs::Fatal("Invalid symbol: " + value);
 
                         symbol data = *opt_data;
-                        if(! std::holds_alternative<morgana_operation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + value);
+                        // if(! std::holds_alternative<morgana_operation>(data) ) CompilerOutputs::Fatal("Invalid symbol: " + value);
 
                         results.push_back({ ParseResultKind::Store, storage(identifier, value) });
                         continue;
@@ -316,8 +318,6 @@ ParseResults parse(std::vector<std::string>& tokens) {
                     i--;
                     continue;
                 }
-
-                CompilerOutputs::Fatal("Invalid symbol: " + identifier);
 
                 i--;
             } continue;
