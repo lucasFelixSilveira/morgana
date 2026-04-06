@@ -30,6 +30,33 @@ using iterator = std::stack<iteration>;
 std::shared_ptr<iteration> current;
 iterator branches;
 
+struct Preprocessor {
+    using value = std::variant<std::monostate, size_t, std::string>;
+    std::stack<std::vector<std::pair<std::string, value>>> stack;
+
+    Preprocessor() = default;
+
+    void push() { stack.push({}); }
+    void pop() { stack.pop(); }
+
+    void add(std::string &identifier, value val) {
+        auto top = stack.top();
+        top.push_back({ identifier, val });
+        stack.pop();
+        stack.push(top);
+    }
+
+    value lookup(std::string &identifier) {
+        auto top = stack.top();
+        for( auto &[id, val] : top ) {
+            if(id == identifier) {
+                return val;
+            }
+        }
+        return value(std::monostate());
+    }
+};
+
 function fn;
 
 struct Symbols;
@@ -41,6 +68,7 @@ struct SPOS {
 
 struct Symbols {
     int stack_pos;
+    Preprocessor preprocessor;
     std::stack<std::vector<std::pair<std::string, SPOS>>> stack;
 
     Symbols() : stack_pos(0), stack() {}
@@ -50,19 +78,19 @@ struct Symbols {
         stack.pop();
         top.push_back({ identifier, sym });
         stack_pos += sym.data.bytes;
-        CompilerOutputs::Log("Added " + identifier + "\n");
         stack.push(top);
     }
 
     SPOS lookup(std::string &identifier) {
         auto top = stack.top();
         for( auto &[id, sp] : top ) {
-            CompilerOutputs::Log("Looking up " + id + "\n");
             if(id == identifier) {
                 return sp;
             }
         }
         CompilerOutputs::Fatal("lookup failed for " + identifier);
+
+        return {};
     }
 };
 
@@ -71,7 +99,7 @@ SPOS SPOS::from(Symbols& sym, symbol s) {
         auto value = std::get<morgana_integer>(s);
         return SPOS{ sym.stack_pos + (value.bits / 8), { (value.bits / 8), value.matrixPos(), false } };
     };
-    return SPOS{ sym.stack_pos, { 1, 0, false } };
+    return {};
 }
 
 void morgana_push_ctx(function data) {
@@ -162,6 +190,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
     switch(first(node)) {
         case ParseResultKind::Function: {
             symbols.stack.push({});
+            symbols.preprocessor.push();
 
             auto data = std::get<function>(second(node));
             add_fields(2);
@@ -205,10 +234,12 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             size_t val = 0;
             size_t stack = 0;
             size_t lhs = 0, rhs = 0;
-            size_t is_literal = is_number(store.value);
+            size_t is_literal = is_number(store.value) || ((! is_number(store.value)) && std::holds_alternative<size_t>(symbols.preprocessor.lookup(store.value)));
 
-            if( is_literal ) val = (size_t) std::stoi(store.value);
-            else {
+            if( is_literal ) {
+                if( is_number(store.value) ) val = (size_t) std::stoi(store.value);
+                else val = std::get<size_t>(symbols.preprocessor.lookup(store.value));
+            } else {
                 lhs_value =  symbols.lookup(store.value);
                 stack = (size_t) lhs_value.stack_position;
             }
@@ -237,6 +268,43 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             auto [identifier, load] = std::get<declaration<std::string>>(second(node));
             symbols.add(identifier, symbols.lookup(load));
         } break;
+
+        case ParseResultKind::Operation: {
+            auto [identifier, operation] = std::get<declaration<morgana_operation>>(second(node));
+
+            if( is_number(operation.lhs) && is_number(operation.rhs) ) {
+                size_t val;
+                if( operation.instruction == "add" ) val = std::stoi(operation.lhs) + std::stoi(operation.rhs);
+                if( operation.instruction == "sub" ) val = std::stoi(operation.lhs) - std::stoi(operation.rhs);
+                if( operation.instruction == "mul" ) val = std::stoi(operation.lhs) * std::stoi(operation.rhs);
+                if( operation.instruction == "div" ) val = std::stoi(operation.lhs) / std::stoi(operation.rhs);
+                symbols.preprocessor.add(identifier, val);
+                reset_fields();
+                break;
+            }
+
+            Preprocessor::value lhs;
+            Preprocessor::value rhs;
+
+            if( is_number(operation.lhs) ) lhs = Preprocessor::value((size_t) std::stoi(operation.lhs));
+            else lhs = symbols.preprocessor.lookup(operation.lhs);
+
+            if( is_number(operation.rhs) ) rhs = Preprocessor::value((size_t) std::stoi(operation.rhs));
+            else rhs = symbols.preprocessor.lookup(operation.rhs);
+
+            size_t val;
+
+            if(! ( std::holds_alternative<std::monostate>(lhs) || std::holds_alternative<std::monostate>(rhs) ) ) {
+                if( operation.instruction == "add" ) val = std::get<size_t>(lhs) + std::get<size_t>(rhs);
+                if( operation.instruction == "sub" ) val = std::get<size_t>(lhs) - std::get<size_t>(rhs);
+                if( operation.instruction == "mul" ) val = std::get<size_t>(lhs) * std::get<size_t>(rhs);
+                if( operation.instruction == "div" ) val = std::get<size_t>(lhs) / std::get<size_t>(rhs);
+                symbols.preprocessor.add(identifier, val);
+                reset_fields();
+                break;
+            }
+
+        }
     }
 }
 
@@ -256,6 +324,7 @@ void epilogue(Symbols& symbols, Runa *runa) {
     RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) symbols.stack_pos }});
 
     symbols.stack.pop();
+    symbols.preprocessor.pop();
     symbols.stack_pos = 0;
     add_fields(4);
     runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
