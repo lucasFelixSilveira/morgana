@@ -32,4 +32,7 @@ namespace context {
     const int ALL_TUPLE_INSTRUCTION                     = 500;
     const int ALL_ADDINPTR_INSTRUCTION                  = 501;
 
+    const int ALL_COMPTIME_INSTRUCTION                  = 600;
+
+
 }

@@ -1,3 +1,4 @@
+#include <string>
 #include <variant>
 
 #define NON_COMPLEX_NODE(keyword, kind) \
@@ -13,4 +14,4 @@ case keyword: { \
     results.push_back({ kind, result }); \
 } continue;
 
-using ret = std::monostate;
+using ret = std::variant<std::monostate, int, std::string>;

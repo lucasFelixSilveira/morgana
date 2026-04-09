@@ -40,6 +40,7 @@ int ctx;
 enum ParseResultKind {
     none = -1,
 
+    Comptime           = 1,
     Epilogue           = 10,
 
     Desconstructor     = 100,
@@ -77,6 +78,7 @@ enum ParseResultKind {
 };
 
 using ParseResult = std::tuple<ParseResultKind, std::variant<
+    std::monostate,
     std::string,
     int,
     function,
@@ -135,7 +137,24 @@ ParseResults parse(std::vector<std::string>& tokens) {
 
             case RET_KEYWORD: {
                 ctx = context::ALL_RETURN_INSTRUCTION;
-                results.push_back({ ParseResultKind::Ret, std::monostate() });
+                i++;
+                ret r = std::monostate();
+
+                std::string what = getnext(tokens, i);
+                if( is_identifier(what) ) r = what;
+                if( is_number(what) ) r = std::stoi(what);
+
+                results.push_back({ ParseResultKind::Ret, r });
+                i--;
+            } continue;
+
+            case COMPTIME_KEYWORD: {
+                ctx = context::ALL_COMPTIME_INSTRUCTION;
+                i++;
+                std::string what = getnext(tokens, i);
+                if(! is_identifier(what) ) CompilerOutputs::Fatal("Comptime statement needs an identifier");
+                results.push_back({ ParseResultKind::Comptime, what });
+                i--;
             } continue;
 
             case ALERT_KEYWORD: {

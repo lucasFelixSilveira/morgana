@@ -2,6 +2,7 @@
 
 #include "compiler_outputs.hpp"
 #include "extensors/runtime.hpp"
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <stack>
@@ -62,7 +63,7 @@ function fn;
 struct Symbols;
 struct SPOS {
     int stack_position;
-    struct { int bytes; int matirx; bool ptr; } data;
+    struct { int bytes; int matrix; bool ptr; } data;
     static SPOS from(Symbols&, symbol);
 };
 
@@ -188,6 +189,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
 
     add_field();
     switch(first(node)) {
+
         case ParseResultKind::Function: {
             symbols.stack.push({});
             symbols.preprocessor.push();
@@ -202,6 +204,39 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
 
             morgana_push_ctx(data);
+        } break;
+
+        case ParseResultKind::Ret: {
+            auto data = std::get<ret>(second(node));
+            add_fields(3);
+
+            bool is_literal = false;
+            std::string value;
+
+            if( std::holds_alternative<std::string>(data) ) {
+                auto identifier = std::get<std::string>(data);
+
+                if( std::holds_alternative<size_t>(symbols.preprocessor.lookup(identifier)) ) {
+                    is_literal = true;
+                    value = std::to_string(std::get<size_t>(symbols.preprocessor.lookup(identifier)));
+                } else {
+                    CompilerOutputs::Fatal("todo!");
+                }
+            }
+            else
+            if( std::holds_alternative<int>(data) ) {
+                is_literal = true;
+                value = std::to_string(std::get<int>(data));
+            } else {};
+
+            runa_push_field(runa, (char*) "is_literal",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = is_literal }});
+
+            runa_push_field(runa, (char*) "id",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
+
+            runa_push_field(runa, (char*) "value",
+            RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
         } break;
 
         case ParseResultKind::Label:
@@ -268,6 +303,14 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             auto [identifier, load] = std::get<declaration<std::string>>(second(node));
             symbols.add(identifier, symbols.lookup(load));
         } break;
+
+        case ParseResultKind::Comptime: {
+            auto identifier = std::get<std::string>(second(node));
+            add_fields(1);
+            runa_push_field(runa, (char*) "identifier",
+            RunaValueFFI { runa_string, RunaValueData { .string = identifier.c_str() }});
+        } break;
+
 
         case ParseResultKind::Operation: {
             auto [identifier, operation] = std::get<declaration<morgana_operation>>(second(node));

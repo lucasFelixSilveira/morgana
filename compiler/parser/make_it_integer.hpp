@@ -27,6 +27,7 @@
 #define BRANCH_LESS_KEYWORD 22
 #define TUPLE_INSTRUCTION 23
 #define ADDINPTR_INSTRUCTION 24
+#define COMPTIME_KEYWORD 35
 
 #define DEFINE_LABEL 10000
 
@@ -67,6 +68,7 @@ int make_it_integer(const std::string& str) {
 
     if( str == "tuple" ) return TUPLE_INSTRUCTION;
     if( str == "addinptr" ) return ADDINPTR_INSTRUCTION;
+    if( str == "comptime" ) return COMPTIME_KEYWORD;
 
     return -1;
 }
