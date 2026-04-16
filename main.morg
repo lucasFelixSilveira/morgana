@@ -1,8 +1,4 @@
-comptime _start
-
 i8 main() {
-e0 = mul 7 2
-e1 = mul 32 3
-e2 = add e0 e1
-ret e2
+    x = alloc i32
+    store x 3
 }

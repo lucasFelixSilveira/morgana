@@ -1,50 +1,40 @@
 #pragma once
 
+#include "base.hpp"
 #include <cmath>
-#include <cstdlib>
+#include <cstdint>
 #include <regex>
-#include <string>
 
-struct morgana_integer {
-    bool is_signed = false;
-    std::string regex;
-    int bits = 0;
+struct morgana_integer : morgana_type {
+    int bits;
+    bool unsigned_;
+    std::string regex_;
 
-    morgana_integer(int bits, bool is_signed)
+    morgana_integer(bool unsigned_, int bits)
         : bits(bits),
-          is_signed(is_signed),
-          regex(is_signed ? "[-]?\\d+" : "\\d+") {}
+          unsigned_(unsigned_),
+          regex_( unsigned_ ? "[0-9]+" : "[-]?[0-9]+" ) {};
 
-    bool check(std::string value) {
-        if(!std::regex_match(value, std::regex(regex))) return false;
+    int matrix() const {
+        return std::log2(bits / 8)-2;
+    }
 
-        long long num = std::atoll(value.c_str());
+    bool check(std::string asciz) {
+        if( bits <= 0 || bits > 64 ) return false;
+        if(! std::regex_match(asciz, std::regex(regex_)) ) return false;
 
-        if(! is_signed ) {
-            unsigned long long max = (1ULL << bits) - 1;
-            if( num < 0 || (unsigned long long) num > max ) return false;
+        int64_t value = std::stoull(asciz);
+
+        if( unsigned_ ) {
+            if (value < 0) return false;
+
+            uint64_t max = (bits == 64) ? UINT64_MAX : ((1ULL << bits) - 1);
+            return (uint64_t)value <= max;
         }
 
-        long long min = -(1LL << (bits - 1));
-        long long max =  (1LL << (bits - 1)) - 1;
+        int64_t max = (bits == 64) ? INT64_MAX : ((1LL << (bits - 1)) - 1);
+        int64_t min = (bits == 64) ? INT64_MIN : -(1LL << (bits - 1));
 
-        if( num < min || num > max ) return false;
-
-        return true;
-    }
-
-
-    int matrixPos() const {
-        return std::log2(bits) - 2;
-    }
-
-    std::string json() {
-        std::stringstream ss;
-        ss << "{ ";
-        ss << " \"bytes\": " << ( bits / 8 ) << ", ";
-        ss << " \"matrix\": " << matrixPos() << ", ";
-        ss << " \"ptr\": false";
-        ss << "}";
-        return ss.str();
+        return value >= min && value <= max;
     }
 };

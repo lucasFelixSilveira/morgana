@@ -1,166 +1,37 @@
 #pragma once
 
-#include "contexts.hpp"
-#include "type.hpp"
-#include <memory>
-#include <optional>
-#include <tuple>
-#include <unordered_map>
-#include <variant>
-#include <vector>
 #include "types/integer.hpp"
-#include "types/bool.hpp"
-#include "types/strong_alias.hpp"
-#include "types/tuple.hpp"
+#include "types/ptr.hpp"
+#include "types/void.hpp"
+#include "../compiler_outputs.hpp"
+#include <variant>
 
-#define MCU_READ_WRITE_CONTEXTS { context::MCU_GPIO_INSTRUCTION, context::MCU_TURN_INSTRUCTION, context::MCU_READ_INSTRUCTION }
-
-struct morgana_subtypes { int instruction; std::string identifier; type real_one;};
-using morgana_types = std::variant<morgana_integer, morgana_bool, morgana_strong_alias>;
-
-struct function_data { std::vector<std::string> types; };
-
-using morgana_load = std::string;
-using named_integers = std::tuple<std::string, int>;
-using addinptr = std::tuple<std::string, int>;
-using morgana_addinptr = std::shared_ptr<addinptr>;
-
-enum symbolKind { GPIO_PIN };
-struct morgana_allocation;
-struct morgana_operation;
-struct morgana_tuple;
 using symbol = std::variant<
-    std::monostate,  // No data entries
-    morgana_integer, // Integer type
-    morgana_bool,    // Boolean type
-    morgana_tuple,   // Tuple type
-
-    /* "Strong alias" is just a different form of the same type,
-     * but with a different name and different uses.
-     * § The stored value is the same as the original type, but
-     * you can't access it directly. */
-    morgana_strong_alias,
-
-    /* Below that comment, all data types are morgana internal.
+    std::monostate,
+    /* Morgana types who are reachable by the user when
+     * generating/writing a Morgana program.
      *
-     * That means: The user cannot access these data. These data
-     * are here just for the Morgana compiler know all the symbols
-     * in the user code during the compilation phase. */
-
-    function_data,      // Store the type of the arguments of the function
-    named_integers,     // Storage integer types
-    morgana_allocation, // Storage the data of the instruction of allocation
-    morgana_load,       // Storage the load source
-    morgana_operation,  // Storage the operation values
-    morgana_addinptr    // Storage the data of the instruction of addinptr
+     * There is a radical syntax definition for each of this types.
+     * And, for sure, also there is a check function who verifies
+     * if a string (received from lexer) is a valid symbol of this type.
+     */
+    morgana_integer,
+    morgana_void,
+    morgana_ptr
 >;
 
-struct morgana_allocation { std::string identifier; std::shared_ptr<symbol> type; };
-struct morgana_operation {
-    std::string instruction;
-    std::string lhs;
-    std::string rhs;
-    morgana_operation(std::string instruction, std::string lhs, std::string rhs) :
-        instruction(instruction), lhs(lhs), rhs(rhs) {}
+
+#define MORGANA_SYMBOLS_FIELDS \
+    X(morgana_i8,   "i8",   morgana_integer(false, 8 )) X(morgana_u8,  "u8",  morgana_integer(true, 8) ) \
+    X(morgana_i16,  "i16",  morgana_integer(false, 16)) X(morgana_u16, "u16", morgana_integer(true, 16)) \
+    X(morgana_i32,  "i32",  morgana_integer(false, 32)) X(morgana_u32, "u32", morgana_integer(true, 32)) \
+    X(morgana_i64,  "i64",  morgana_integer(false, 64)) X(morgana_u64, "u64", morgana_integer(true, 64)) \
+    X(morgana_void, "void", morgana_void()) \
+    X(morgana_ptr,  "ptr",  morgana_ptr())
+
+symbol sfrom(std::string identifier) {
+    #define X(name, str, type) if( identifier == str ) return type;
+    MORGANA_SYMBOLS_FIELDS
+    #undef X
+    return std::monostate();
 };
-
-struct morgana_tuple {
-    std::vector<int> sizes;
-    std::vector<std::shared_ptr<symbol>> types;
-    int bytes;
-
-    std::string json() const {
-        std::string result = "{\"bytes\": " + std::to_string(bytes) + ", \"tuple\":[";
-        for (size_t i = 0; i < sizes.size(); ++i) {
-            result += std::to_string(sizes[i]);
-            if (i < sizes.size() - 1) result += ", ";
-        }
-        result += "]}";
-        return result;
-    }
-};
-
-class SymbolTable {
-private:
-    std::stack<std::unordered_map<std::string, symbol>> scopes;
-
-public:
-    SymbolTable() {
-        enter_scope();
-        current_scope().insert({
-            {"u8",    morgana_integer(8,   false) },
-            {"u16",   morgana_integer(16,  false) },
-            {"u32",   morgana_integer(32,  false) },
-            {"u64",   morgana_integer(64,  false) },
-            {"u128",  morgana_integer(128, false) },
-            {"u256",  morgana_integer(256, false) },
-
-            {"i8",    morgana_integer(8,   true) },
-            {"i16",   morgana_integer(16,  true) },
-            {"i32",   morgana_integer(32,  true) },
-            {"i64",   morgana_integer(64,  true) },
-            {"i128",  morgana_integer(128, true) },
-            {"i256",  morgana_integer(256, true) },
-
-            {"ptr",      morgana_integer((sizeof(void*) * 8),  true) },
-            {"gpio_pin", morgana_strong_alias(morgana_integer(16, false), MCU_READ_WRITE_CONTEXTS) }
-        });
-    }
-
-    void enter_scope() {
-        scopes.push(std::unordered_map<std::string, symbol>());
-    }
-
-    void exit_scope() {
-        if( scopes.size() > 1 ) scopes.pop();
-    }
-
-    std::unordered_map<std::string, symbol>& current_scope() {
-        return scopes.top();
-    }
-
-    bool insert(std::string& name, symbol data) {
-        auto& scope = current_scope();
-        if( scope.find(name) != scope.end() ) return false;
-        scope[name] = data;
-        return true;
-    }
-
-    std::optional<symbol> lookup(std::string name) {
-        auto temp_stack = scopes;
-
-        while(!temp_stack.empty()) {
-            auto& scope = temp_stack.top();
-            auto it = scope.find(name);
-            if( it != scope.end() ) return it->second;
-            temp_stack.pop();
-        }
-        return std::nullopt;
-    }
-
-    std::optional<symbol> lookup_current(const std::string& name) {
-        auto& scope = current_scope();
-        auto it = scope.find(name);
-        if( it != scope.end() ) return it->second;
-        return std::nullopt;
-    }
-
-    bool exists(std::string& name) {
-        return lookup(name).has_value();
-    }
-
-    bool exists_in_current(std::string& name) {
-        return lookup_current(name).has_value();
-    }
-
-    bool remove(std::string& name) {
-        auto& scope = current_scope();
-        return scope.erase(name) > 0;
-    }
-
-    size_t scope_level() const {
-        return scopes.size() - 1;
-    }
-};
-
-SymbolTable symbol_table;

@@ -6,5 +6,9 @@ struct storage {
     std::string identifier;
     std::string value;
 
-    storage(std::string identifier, std::string value) : identifier(identifier), value(value) {}
+    storage() = default;
+
+    storage(std::string identifier, std::string value)
+        : identifier(identifier),
+          value(value) {}
 };

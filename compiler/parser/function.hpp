@@ -1,16 +1,17 @@
 #pragma once
+
+#include "symbols.hpp"
 #include <string>
 #include <vector>
 
-#include "symbols.hpp"
-#include "type.hpp"
-
 struct function {
     std::string name;
-    std::vector<symbol> argst;
-    type ret;
+    std::vector<symbol> args;
     std::vector<std::string> body;
+    bool noframe;
+
+    function(std::string name, std::vector<symbol> args, std::vector<std::string> body, bool noframe)
+        : name(name), args(args), body(body), noframe(noframe) {}
 
     function() = default;
-    function(std::string name, std::vector<symbol> argst, type ret, std::vector<std::string> body) : name(name), argst(argst), ret(ret), body(body) {}
 };

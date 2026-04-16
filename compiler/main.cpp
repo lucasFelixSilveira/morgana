@@ -14,10 +14,9 @@
 #include <vector>
 
 #include "extensors/manager.hpp"
-#include "parser.hpp"
+#include "parser/parser.hpp"
 #include "tokenizer.hpp"
 #include "codegen.hpp"
-#include "debug.hpp"
 
 CompilerParams params;
 
