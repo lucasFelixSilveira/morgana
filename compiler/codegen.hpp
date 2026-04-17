@@ -8,6 +8,7 @@
 #include <stack>
 #include <stddef.h>
 #include "libs/linux/include/runa.hpp"
+#include "parser/ret.hpp"
 #include "parser/types/integer.hpp"
 #include "runa.hpp"
 #include "params.hpp"
@@ -228,50 +229,47 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             morgana_push_ctx(data);
         } break;
 
-    //     case ParseResultKind::Ret: {
-    //         auto data = std::get<ret>(second(node));
-    //         add_fields(3);
+        case parse_kind::RET: {
+            auto data = std::get<ret_t>(second(node));
+            add_fields(2);
 
-    //         bool is_literal = false;
-    //         std::string value;
+            runa_push_field(runa, (char*) "is_empty",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = std::holds_alternative<std::monostate>(data) }});
 
-    //         if( std::holds_alternative<std::string>(data) ) {
-    //             auto identifier = std::get<std::string>(data);
+            runa_push_field(runa, (char*) "id",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
 
-    //             if( std::holds_alternative<size_t>(symbols.preprocessor.lookup(identifier)) ) {
-    //                 is_literal = true;
-    //                 value = std::to_string(std::get<size_t>(symbols.preprocessor.lookup(identifier)));
-    //             } else {
-    //                 CompilerOutputs::Fatal("todo!");
-    //             }
-    //         }
-    //         else
-    //         if( std::holds_alternative<int>(data) ) {
-    //             is_literal = true;
-    //             value = std::to_string(std::get<int>(data));
-    //         } else {};
+            if( std::holds_alternative<std::monostate>(data) ) break;
+            bool is_literal = false;
+            std::string value;
+            value = std::get<std::string>(data);
 
-    //         runa_push_field(runa, (char*) "is_literal",
-    //         RunaValueFFI { runa_integer, RunaValueData { .integer = is_literal }});
+            if( std::holds_alternative<size_t>(symbols.preprocessor.lookup(value)) ) {
+                is_literal = true;
+                value = std::to_string(std::get<size_t>(symbols.preprocessor.lookup(value)));
+            }
+            else is_literal = is_number(value);
 
-    //         runa_push_field(runa, (char*) "id",
-    //         RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
+            add_fields(2);
 
-    //         runa_push_field(runa, (char*) "value",
-    //         RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
-    //     } break;
+            runa_push_field(runa, (char*) "is_literal",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = is_literal }});
 
-    //     case ParseResultKind::Label:
-    //     case ParseResultKind::Branch: {
-    //         auto data = std::get<std::string>(second(node));
-    //         add_fields(2);
+            runa_push_field(runa, (char*) "value",
+            RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
+        } break;
 
-    //         runa_push_field(runa, (char*) "fn",
-    //         RunaValueFFI { runa_string, RunaValueData { .string = fn.name.c_str() }});
+        // case ParseResultKind::Label:
+        // case ParseResultKind::Branch: {
+        //     auto data = std::get<std::string>(second(node));
+        //     add_fields(2);
 
-    //         runa_push_field(runa, (char*) "name",
-    //         RunaValueFFI { runa_string, RunaValueData { .string = data.c_str() }});
-    //     } break;
+        //     runa_push_field(runa, (char*) "fn",
+        //     RunaValueFFI { runa_string, RunaValueData { .string = fn.name.c_str() }});
+
+        //     runa_push_field(runa, (char*) "name",
+        //     RunaValueFFI { runa_string, RunaValueData { .string = data.c_str() }});
+        // } break;
 
         case parse_kind::ALLOC: {
             auto [identifier, type] = std::get<declaration<symbol>>(second(node));

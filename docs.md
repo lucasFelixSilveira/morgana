@@ -17,7 +17,7 @@ The Morgana compiler has some very interesting features. It works quite differen
 - Simpler errors with less information, making it easier to understand the problem.
 - `Other distinctions should be added.`
 
-### CLI
+## CLI
 
 The CLI follows this basic syntax:
 
@@ -45,7 +45,7 @@ We also have several flags that can be used (even if useless in some cases) with
 - `-n` - Some build systems, such as `idf.py` (ESP32), require a project name. To avoid generic names, the `-n` flag allows you to specify a custom name. By default, Morgana will try to read the name from the `target.toml` file.
 - `Other flags should be added.`
 
-# Extensors
+## Extensors
 
 Extensors are one of the most interesting aspects of Morgana. Morgana is an almost complete compiler, but it does not include a built-in code generation system. Instead, you download the codegen externally. This makes the Morgana clone faster, the project smaller, and much more modular — which means it is also more scalable.
 

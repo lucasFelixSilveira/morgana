@@ -3,12 +3,15 @@
 #include "blocks.hpp"
 #include "checkouts.hpp"
 #include "function.hpp"
+#include "ret.hpp"
 #include "statements.hpp"
 #include "storage.hpp"
 #include "storage.hpp"
 #include "symbols.hpp"
 #include "../compiler_outputs.hpp"
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <regex>
 #include <stack>
 #include <string>
@@ -22,8 +25,9 @@
 #define MORGANA_PARSER_NODE_FIELDS \
     X(FUNCTION, 100) \
     X(EPILOGUE, 101) \
+    X(RET,      102) \
     X(ALLOC,    200) \
-    X(STORE,    201)
+    X(STORE,    201) \
 
 #define X(name, id) name = id,
 enum parse_kind : int32_t { MORGANA_PARSER_NODE_FIELDS };
@@ -36,6 +40,8 @@ using ParseResult = std::tuple<parse_kind, std::variant<
     std::monostate,
     function,
     storage,
+    ret_t,
+
 
     /* declarations */
     declaration<symbol>
@@ -51,8 +57,9 @@ using ParseResults = std::vector<ParseResult>;
 
 #define MORGANA_STATEMENT_FUNCTION_ARGUMENTS int& i, std::vector<std::string>& tokens, std::string identifier, ParseResults& result
 
-void alloc(MORGANA_STATEMENT_FUNCTION_ARGUMENTS);
-void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS);
+#define X(id, def, fn) void fn(MORGANA_STATEMENT_FUNCTION_ARGUMENTS);
+MORGANA_PARSER_STATEMENTS_FIELDS
+#undef X
 
 ParseResults parse(std::vector<std::string> tokens) {
     ParseResults result;
@@ -191,4 +198,18 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     if( check != STARTS_WITH::ST_IDENTIFIER && check != STARTS_WITH::ST_NUMBER ) err(1);
 
     result.push_back({ parse_kind::STORE, storage(expr, value) });
+}
+
+void ret(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    if( i + 1 >= tokens.size() ) {
+        result.push_back({ parse_kind::RET, ret_t(std::monostate()) });
+        return;
+    }
+
+    ret_t v = std::monostate();
+    std::string value = tokens.at(++i);
+    STARTS_WITH check = starts_expr(value);
+    if( check == STARTS_WITH::ST_IDENTIFIER || check == STARTS_WITH::ST_NUMBER ) v = value;
+
+    result.push_back({ parse_kind::RET, v });
 }

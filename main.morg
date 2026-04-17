@@ -1,4 +1,3 @@
 i8 main() {
-    x = alloc i32
-    store pussy 3
+    ret
 }

@@ -5,4 +5,5 @@
 
 #define MORGANA_PARSER_STATEMENTS_FIELDS \
     X("alloc", true, alloc) \
-    X("store", false, store)
+    X("store", false, store) \
+    X("ret", false, ret)
