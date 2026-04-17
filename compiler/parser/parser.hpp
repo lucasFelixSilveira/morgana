@@ -1,5 +1,6 @@
 #pragma once
 
+#include "blocks.hpp"
 #include "checkouts.hpp"
 #include "function.hpp"
 #include "statements.hpp"
@@ -9,6 +10,7 @@
 #include "../compiler_outputs.hpp"
 #include <cstdint>
 #include <regex>
+#include <stack>
 #include <string>
 #include <tuple>
 #include <variant>
@@ -54,6 +56,8 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS);
 
 ParseResults parse(std::vector<std::string> tokens) {
     ParseResults result;
+    block::init();
+    block::push_generic();
 
     for( int i = 0; i < tokens.size(); i++ ) {
         const std::string& first = tokens.at(i);
@@ -140,6 +144,8 @@ ParseResults parse(std::vector<std::string> tokens) {
             } continue;
 
             case ST_STATEMENT: {
+                /* Auto caller from all statements who DO NOT need to be used
+                 * after a definition. */
                 #define X(id, def, fn) if( first == id && (! def ) ) { fn(i, tokens, first, result); continue; }
                 MORGANA_PARSER_STATEMENTS_FIELDS
                 #undef X
@@ -147,9 +153,12 @@ ParseResults parse(std::vector<std::string> tokens) {
         }
     }
 
+    block::pop_generic();
     return result;
 }
 
+/* Alloc statement implementation - [NEED DECLARATION]
+ * - Alloc was used to allocate a memory space for a variable. */
 void alloc(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     auto err = [&]() { CompilerOutputs::Fatal("After an `alloc` you need to place a valid type"); };
     if( i + 1 >= tokens.size() ) err();
@@ -158,11 +167,13 @@ void alloc(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     STARTS_WITH check = starts_expr(type);
     if( check != STARTS_WITH::ST_TYPEMENT ) err();
 
-    result.push_back({ parse_kind::ALLOC, declaration<symbol> { identifier, sfrom(type) } });
+    declaration<symbol> declaration(identifier, sfrom(type));
+    block::push_back(block::allocations, declaration);
+    result.push_back({ parse_kind::ALLOC, declaration });
 }
 
-
-
+/* Store statement implementation - [DO NOT NEED DECLARATION]
+ * - Store was used to store a value into a memory space. */
 void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     auto err = [&](int j) { (j == 0) ? CompilerOutputs::Fatal("After a `store` you need to place a valid allocation")
                                      : CompilerOutputs::Fatal("In a `store` you need to place a valid value"); };
@@ -172,6 +183,8 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     std::string expr = tokens.at(++i);
     STARTS_WITH check = starts_expr(expr);
     if( check != STARTS_WITH::ST_IDENTIFIER ) err(0);
+
+    if(! block::lookup(block::allocations, expr) ) block::error(block::allocations, expr);
 
     std::string value = tokens.at(++i);
     check = starts_expr(value);
