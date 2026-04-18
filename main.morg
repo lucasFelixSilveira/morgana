@@ -1,3 +1,4 @@
 i8 main() {
-    ret
+    x = alloc u8
+    store x 255
 }

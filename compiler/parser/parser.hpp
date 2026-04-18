@@ -9,6 +9,7 @@
 #include "storage.hpp"
 #include "symbols.hpp"
 #include "../compiler_outputs.hpp"
+#include "types/integer.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -41,7 +42,6 @@ using ParseResult = std::tuple<parse_kind, std::variant<
     function,
     storage,
     ret_t,
-
 
     /* declarations */
     declaration<symbol>
@@ -195,11 +195,24 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
 
     std::string value = tokens.at(++i);
     check = starts_expr(value);
-    if( check != STARTS_WITH::ST_IDENTIFIER && check != STARTS_WITH::ST_NUMBER ) err(1);
+
+    switch(check) {
+        case STARTS_WITH::ST_NUMBER: {
+            auto [_, symbol] = block::peek(block::allocations, expr);
+            if(! std::holds_alternative<morgana_integer>(symbol) ) err(1);
+
+            auto int_t = std::get<morgana_integer>(symbol);
+            if( !int_t.check(value) ) err(1);
+        } break;
+        case STARTS_WITH::ST_IDENTIFIER: break;
+        default: err(1);
+    }
 
     result.push_back({ parse_kind::STORE, storage(expr, value) });
 }
 
+/* Return statement implementation - [DO NOT NEED DECLARATION]
+ * - Return was used to return a value from a function. */
 void ret(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     if( i + 1 >= tokens.size() ) {
         result.push_back({ parse_kind::RET, ret_t(std::monostate()) });

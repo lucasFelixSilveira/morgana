@@ -18,7 +18,8 @@ struct block {
      *
      * Each block level contains a vector of (identifier, symbol),
      * representing declared allocations within that scope. */
-    using allocations_t = block_t<std::tuple<std::string, symbol>>;
+    using allocation_t = std::tuple<std::string, symbol>;
+    using allocations_t = block_t<allocation_t>;
     inline static allocations_t allocations;
 
     /* Pushes a new empty vector onto the stack.
@@ -121,10 +122,19 @@ struct block {
     static bool lookup(block_t<T>& b, std::string identifier) {
         if( b.empty() ) return false;
 
-        if constexpr (std::is_same_v<T, std::string>)
+        if constexpr (std::is_same_v<T, allocation_t>)
         /* -> */ for( const auto& item : b.top() )
-        /* -> */    if( item == identifier ) return true;
+        /* -> */    if( std::get<0>(item) == identifier ) return true;
 
         return false;
+    }
+
+    template<typename T>
+    static T peek(block_t<T>& b, std::string identifier) {
+        if constexpr (std::is_same_v<T, allocation_t>)
+        /* -> */ for( const auto& item : b.top() )
+        /* -> */    if( std::get<0>(item) == identifier ) return item;
+
+        return T();
     }
 };
