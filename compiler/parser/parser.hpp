@@ -10,9 +10,7 @@
 #include "symbols.hpp"
 #include "../compiler_outputs.hpp"
 #include "types/integer.hpp"
-#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <regex>
 #include <stack>
 #include <string>
