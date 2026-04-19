@@ -99,15 +99,7 @@ This is the basic syntax for variable assignment in Morgana. You assign the resu
 x = expression
 ```
 
-## Morgana Instructions
-
-In Morgana, instructions are divided into two categories: those that return a value and those that do not. Instructions without a return value must always be used as standalone statements. Using them inside an expression or on the right side of an assignment will result in a syntax error. The compiler will not accept them in such contexts.
-
-Aqui está a versão traduzida, melhorada e bem organizada em inglês, mantendo o significado original de forma clara e profissional:
-
----
-
-### Instructions
+### Morgana Instructions
 
 In Morgana, instructions are classified as either **declarative** or **non-declarative**.
 
