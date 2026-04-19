@@ -3,7 +3,6 @@
 #include "types/integer.hpp"
 #include "types/ptr.hpp"
 #include "types/void.hpp"
-#include "../compiler_outputs.hpp"
 #include <variant>
 
 using symbol = std::variant<

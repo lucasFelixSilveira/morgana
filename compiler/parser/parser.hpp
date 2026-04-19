@@ -3,6 +3,7 @@
 #include "blocks.hpp"
 #include "checkouts.hpp"
 #include "function.hpp"
+#include "puts.hpp"
 #include "ret.hpp"
 #include "statements.hpp"
 #include "storage.hpp"
@@ -11,10 +12,12 @@
 #include "../compiler_outputs.hpp"
 #include "types/integer.hpp"
 #include <cstdint>
+#include <iostream>
 #include <regex>
 #include <stack>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -22,6 +25,11 @@
 #define TO_PARSE false
 
 #define MORGANA_PARSER_NODE_FIELDS \
+    X(PUTS,      0)  \
+    X(STRINGS,   1)  \
+    X(DATA,      2)  \
+    X(TEXT,      3)  \
+    X(COMPTIMNE, 4)  \
     X(FUNCTION, 100) \
     X(EPILOGUE, 101) \
     X(RET,      102) \
@@ -32,13 +40,19 @@
 enum parse_kind : int32_t { MORGANA_PARSER_NODE_FIELDS };
 #undef X
 
+using strings = std::unordered_map<std::string, std::string>;
+std::stack<strings> strings_stack;
+
 template<typename T>
 using declaration = std::tuple<std::string, T>;
 
 using ParseResult = std::tuple<parse_kind, std::variant<
     std::monostate,
+    std::string,
+    strings,
     function,
     storage,
+    puts_t,
     ret_t,
 
     /* declarations */
@@ -63,6 +77,7 @@ ParseResults parse(std::vector<std::string> tokens) {
     ParseResults result;
     block::init();
     block::push_generic();
+    strings_stack.push({});
 
     for( int i = 0; i < tokens.size(); i++ ) {
         const std::string& first = tokens.at(i);
@@ -195,15 +210,22 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     check = starts_expr(value);
 
     switch(check) {
-        case STARTS_WITH::ST_NUMBER: {
-            auto [_, symbol] = block::peek(block::allocations, expr);
-            if(! std::holds_alternative<morgana_integer>(symbol) ) err(1);
-
-            auto int_t = std::get<morgana_integer>(symbol);
-            if( !int_t.check(value) ) err(1);
+        case STARTS_WITH::ST_NUMBER: {} break;
+        case STARTS_WITH::ST_IDENTIFIER: {
+            if( block::lookup(block::constants, value) ) {
+                auto [_, content] = block::peek(block::constants, value);
+                value = content;
+                break;
+            }
         } break;
-        case STARTS_WITH::ST_IDENTIFIER: break;
         default: err(1);
+    }
+
+    auto [_, symbol] = block::peek(block::allocations, expr);
+    if( std::holds_alternative<morgana_integer>(symbol) ) {
+
+        auto int_t = std::get<morgana_integer>(symbol);
+        if(! int_t.check(value) ) err(1);
     }
 
     result.push_back({ parse_kind::STORE, storage(expr, value) });
@@ -223,4 +245,49 @@ void ret(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     if( check == STARTS_WITH::ST_IDENTIFIER || check == STARTS_WITH::ST_NUMBER ) v = value;
 
     result.push_back({ parse_kind::RET, v });
+}
+
+void puts(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    auto err = [&]() { CompilerOutputs::Fatal("After a `puts` statement you need to place a valid constant of string"); };
+    if( i + 1 >= tokens.size() ) err();
+    std::string value = tokens.at(++i);
+
+    STARTS_WITH check = starts_expr(value);
+    if( check != STARTS_WITH::ST_IDENTIFIER ) err();
+
+    auto& top = strings_stack.top();
+    if( top.find(value) == top.end() ) err();
+
+    result.push_back({ parse_kind::PUTS, puts_t(value, top.at(value).size()) });
+}
+
+void constant(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    auto err = [&]() { CompilerOutputs::Fatal("After a `constant` statement you need to place a valid value or constant statement"); };
+
+    if( i + 1 >= tokens.size() ) err();
+    std::string value = tokens.at(++i);
+
+    STARTS_WITH check = starts_expr(value);
+    switch(check) {
+        case STARTS_WITH::ST_NUMBER: {
+            block::push_back(block::constants, block::constant_t { identifier, value });
+        } break;
+        case STARTS_WITH::ST_STRING: {
+            auto top = strings_stack.top();
+            top.insert({identifier, value});
+            strings_stack.pop();
+            strings_stack.push(top);
+            block::push_back(block::constants, block::constant_t { identifier, identifier });
+        } break;
+        default: err();
+    }
+}
+
+void comptime(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    auto err = [&]() { CompilerOutputs::Fatal("After a `comptime` statement you need to place a valid value or comptime statement"); };
+
+    if( i + 1 >= tokens.size() ) err();
+    std::string value = tokens.at(++i);
+    result.push_back({ parse_kind::COMPTIMNE, value });
+    return;
 }

@@ -1,12 +1,14 @@
 #pragma once
 
 #include "symbols.hpp"
+#include "../compiler_outputs.hpp"
 #include <stack>
 #include <string>
 #include <vector>
 
 #define MORGANA_BLOCK_INTERNALS \
     X(allocations, allocation) \
+    X(constants, constant) \
 
 struct block {
     template<typename T>
@@ -21,6 +23,14 @@ struct block {
     using allocation_t = std::tuple<std::string, symbol>;
     using allocations_t = block_t<allocation_t>;
     inline static allocations_t allocations;
+
+    /* Stack that stores the current constantes in the parsing context.
+     *
+     * Each block level contains a vector of (identifier, value),
+     * representing declared constants within that scope. */
+    using constant_t = std::tuple<std::string, std::string>;
+    using constants_t = block_t<constant_t>;
+    inline static constants_t constants;
 
     /* Pushes a new empty vector onto the stack.
      * This vector becomes the current active block.
@@ -122,7 +132,7 @@ struct block {
     static bool lookup(block_t<T>& b, std::string identifier) {
         if( b.empty() ) return false;
 
-        if constexpr (std::is_same_v<T, allocation_t>)
+        if constexpr ( std::is_same_v<T, allocation_t> || std::is_same_v<T, constant_t> )
         /* -> */ for( const auto& item : b.top() )
         /* -> */    if( std::get<0>(item) == identifier ) return true;
 
@@ -131,7 +141,7 @@ struct block {
 
     template<typename T>
     static T peek(block_t<T>& b, std::string identifier) {
-        if constexpr (std::is_same_v<T, allocation_t>)
+        if constexpr (std::is_same_v<T, allocation_t> || std::is_same_v<T, constant_t>)
         /* -> */ for( const auto& item : b.top() )
         /* -> */    if( std::get<0>(item) == identifier ) return item;
 

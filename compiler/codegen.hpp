@@ -104,6 +104,7 @@ SPOS SPOS::from(Symbols& sym, symbol s) {
     return {};
 }
 
+strings pendent_strings;
 void morgana_push_ctx(function data) {
     fn = data;
     ParseResults results = parse(data.body);
@@ -140,6 +141,7 @@ void writeln(Runa *runa) {
 
 void table(Symbols& symbols, Runa *runa, ParseResult& ast);
 void epilogue(Symbols& symbols, Runa *runa);
+void pendent_strings_make(Runa *runa);
 
 std::string codegen(CompilerParams& params, ParseResults ast) {
     std::string path = Runtime::get_executable_path("morgana");
@@ -173,7 +175,7 @@ std::string codegen(CompilerParams& params, ParseResults ast) {
             continue;
         } else {
             if( branches.empty() ) break;
-            else { epilogue(symbols, runa); }
+            else { epilogue(symbols, runa); pendent_strings_make(runa); }
             current = std::make_shared<iteration>(branches.top());
             branches.pop();
         }
@@ -193,7 +195,7 @@ void epilogue(Symbols& symbols, Runa *runa) {
     RunaValueFFI { runa_string, RunaValueData { .string = fn.name.c_str() } });
 
     runa_push_field(runa, (char*) "id",
-    RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id++ }});
+    RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
 
     runa_push_field(runa, (char*) "stack",
     RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) symbols.stack_pos }});
@@ -203,6 +205,35 @@ void epilogue(Symbols& symbols, Runa *runa) {
     symbols.stack_pos = 0;
     add_fields(4);
     runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
+}
+
+void pendent_strings_make(Runa *runa) {
+    reset_fields();
+
+    add_field();
+    runa_push_field(runa, (char*) "kind",
+    RunaValueFFI { runa_integer, RunaValueData { .integer = parse_kind::DATA }});
+    runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
+
+    reset_fields();
+    add_fields(3);
+    for( auto& [name, value] : strings_stack.top() ) {
+        runa_push_field(runa, (char*) "kind",
+        RunaValueFFI { runa_integer, RunaValueData { .integer = parse_kind::STRINGS }});
+
+        runa_push_field(runa, (char*) "identifier",
+        RunaValueFFI { runa_string, RunaValueData { .string = (".fn" + std::to_string(function_id) + "." + name).c_str() }});
+
+        runa_push_field(runa, (char*) "value",
+        RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
+
+        runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
+    }
+
+    strings_stack.pop();
+    function_id++;
+
+    reset_fields();
 }
 
 
@@ -259,6 +290,20 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
         } break;
 
+        case parse_kind::PUTS: {
+            auto data = std::get<puts_t>(second(node));
+            add_fields(3);
+
+            runa_push_field(runa, (char*) "addr",
+            RunaValueFFI { runa_string, RunaValueData { .string = data.str.c_str() }});
+
+            runa_push_field(runa, (char*) "length",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = data.length }});
+
+            runa_push_field(runa, (char*) "fn",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
+        } break;
+
         // case ParseResultKind::Label:
         // case ParseResultKind::Branch: {
         //     auto data = std::get<std::string>(second(node));
@@ -275,6 +320,13 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             auto [identifier, type] = std::get<declaration<symbol>>(second(node));
             SPOS to = SPOS::from(symbols, type);
             symbols.add(identifier, to);
+        } break;
+
+        case parse_kind::COMPTIMNE: {
+            auto data = std::get<std::string>(second(node));
+            add_field();
+            runa_push_field(runa, (char*) "instruction",
+            RunaValueFFI { runa_string, RunaValueData { .string = data.c_str() }});
         } break;
 
         case parse_kind::STORE: {

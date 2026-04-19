@@ -1,4 +1,7 @@
+comptime _start
+
 i8 main() {
-    x = alloc u8
-    store x 255
+    value = constant "Hello, World!\n"
+    puts value
+    ret 1
 }

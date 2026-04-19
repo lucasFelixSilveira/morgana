@@ -8,8 +8,11 @@
 - [IR Language Syntax](#morgana-ir-language) 
     - [Declarations](#morgana-declarations)
     - [Instructions](#morgana-instructions)
+        - [comptime](#comptime)
         - [alloc](#alloc)
         - [store](#store)
+        - [constant](#constant)
+        - [puts](#puts)
 
 <hr>
 
@@ -105,10 +108,30 @@ In Morgana, instructions are classified as either **declarative** or **non-decla
 
 - Instructions marked as **non-declarative** must be used as standalone statements (outside of any expression or declaration).
 - Instructions marked as **declarative** must be used inside a declaration.
+- Instructions marked as **constant** must be used inside a constant declaration.
 - If no classification is specified, the instruction can be used in any context.
 
+<hr>
+    
+### Comptime
+**THIS INSTRUCTION IS SPECIAL!**
+That instruction is 100% controlled by your extensor. Remember check your extensor documentation before do anything with this instruction.
+
+**ALL OF THE OFFICIAL EXTENSORS HAVE:**
+- `_start` - Make the entry for the main function
+
+##
+
+- `non-declarative`
+- `identifier` - The identifier of the comptime expression 
+```morgana
+comptime identifier
+``` 
+
+<hr>
+
 #### Alloc
-- `Declarative`
+- `declarative`
 - `identifier` – Part of the declaration
 - `type` – The type to be allocated on the stack
 
@@ -119,8 +142,10 @@ identifier = alloc type
 > Does it generate any reference block?  
 **Yes.** It belongs to the allocation block.
 
+<hr>
+
 #### Store 
-- `Non-declarative`
+- `non-declarative` 
 - `identifier` – An identifier that **already exists** in the allocation blocks.
 - `value` – A value compatible with the allocated type. You can also use `default`, constant identifiers, or loads.
 
@@ -130,3 +155,22 @@ store identifier value
 
 > Does it generate any reference block?  
 **No**
+
+<hr>
+
+#### Constant
+- `declarative`
+- `identifier` – Part of the declaration
+- `value` - Can be a literal String or a literal number.
+```morgana
+identifier = constant value
+```
+
+<hr>
+    
+#### Puts
+- `non-declarative`
+- `identifier` – An identifier of an already defined constant
+```morgana
+puts identifier
+```
