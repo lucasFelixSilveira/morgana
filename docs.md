@@ -115,6 +115,7 @@ In Morgana, instructions are classified as either **declarative** or **non-decla
     
 ### Comptime
 **THIS INSTRUCTION IS SPECIAL!**
+
 That instruction is 100% controlled by your extensor. Remember check your extensor documentation before do anything with this instruction.
 
 **ALL OF THE OFFICIAL EXTENSORS HAVE:**
@@ -124,9 +125,13 @@ That instruction is 100% controlled by your extensor. Remember check your extens
 
 - `non-declarative`
 - `identifier` - The identifier of the comptime expression 
+
 ```morgana
 comptime identifier
 ``` 
+
+> Does it generate any reference block?  
+**No**
 
 <hr>
 
@@ -140,7 +145,7 @@ identifier = alloc type
 ```
 
 > Does it generate any reference block?  
-**Yes.** It belongs to the allocation block.
+**Yes.** It belongs to the allocations block.
 
 <hr>
 
@@ -162,9 +167,13 @@ store identifier value
 - `declarative`
 - `identifier` – Part of the declaration
 - `value` - Can be a literal String or a literal number.
+
 ```morgana
 identifier = constant value
 ```
+
+> Does it generate any reference block?  
+**Yes.** It belongs to the constants block.
 
 <hr>
     
@@ -174,3 +183,6 @@ identifier = constant value
 ```morgana
 puts identifier
 ```
+
+> Does it generate any reference block?  
+**No**
