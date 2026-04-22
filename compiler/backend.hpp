@@ -49,10 +49,19 @@ struct Backend {
         std::stringstream breaker;
         breaker << "\n" << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET;
 
-        // Compile with AS
-        if( params.target == "x86_64" ) {
+        // Compile with AS from linux
+        if( params.target == "x86_64-linux" ) {
             std::string as = "as \"" + s + "\" -o \"" + o + "\" > /dev/null 2>&1";
             if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
+
+            if( params.c_ffi ) {
+                std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI to object file using gcc");
+
+                std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link C FFI to Morgana IR object file using ld");
+                return;
+            }
 
             std::string ld = "ld \"" + o + "\" -o \"" + exe + "\" > /dev/null 2>&1";
             if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");

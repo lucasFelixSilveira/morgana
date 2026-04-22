@@ -14,11 +14,11 @@ main:
 	movq %rsp, %rbp
 	movq $.fn0._1, -8(%rbp)
 	movq -8(%rbp), %rdi
-	call myprint
+	call println
 .LFE0:
 	.size main, .LFE0 - main
 	movq %rdi, %rax
 	leave
 	ret
 .data
-	.fn0._1: .string "Hello, world! My name is Lucas!"
+	.fn0._1: .string "Hello, world! My name is Lucas! bruh"

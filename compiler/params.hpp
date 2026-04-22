@@ -15,17 +15,21 @@ public:
     std::string main;
     std::string name;
     std::string target;
+    std::string ffi_path;
 
     bool optimized;
     bool verbose;
+    bool c_ffi;
 
     std::string mcu;
     std::string port;
     std::string programmer;
     hz frequency;
 
-    CompilerParams(bool verbose,  char *cwd,  char *command,  char *main,  char *name,  char *target, bool optimized, std::string mcu, hz frequency, std::string port, std::string programmer)
+    CompilerParams(bool verbose, bool c_ffi, char *cwd,  char *command,  char *main,  char *name,  char *target, bool optimized, std::string mcu, hz frequency, std::string port, std::string programmer, char *ffi_path)
         : verbose(verbose),
+          c_ffi(c_ffi),
+          ffi_path(ffi_path),
           cwd(cwd),
           command(command),
           main(main),
@@ -50,6 +54,9 @@ public:
         bool optimized = false;
         bool verbose = false;
 
+        bool c_ffi = false;
+        char *ffi_path = (char*) "internal.c";
+
         std::string os = detectSystemInfo().os;
 
         std::string programmer;
@@ -63,8 +70,10 @@ public:
             if( std::strcmp(argv[i], "-n") == 0 && (i + 1) < argc ) name = argv[++i];
             if( std::strcmp(argv[i], "-m") == 0 && (i + 1) < argc ) main = argv[++i];
             if( std::strcmp(argv[i], "-o") == 0 && (i + 1) < argc ) target = argv[++i];
+            if( std::strcmp(argv[i], "-cpath") == 0 && (i + 1) < argc ) ffi_path = argv[++i];
             if( std::strcmp(argv[i], "-O") == 0 ) optimized = true;
             if( std::strcmp(argv[i], "-v") == 0 ) verbose = true;
+            if( std::strcmp(argv[i], "-ffi") == 0 ) c_ffi = true;
 
             if( std::strcmp(argv[i], "-MHz") == 0 && (i + 1) < argc ) frequency = MHz(std::stoul(argv[++i]));
             if( std::strcmp(argv[i], "-mcu") == 0 && (i + 1) < argc ) mcu = argv[++i];
@@ -78,6 +87,6 @@ public:
             if( programmer.empty() ) programmer = "arduino";
         }
 
-        return CompilerParams(verbose, cwd, command, main, name, target, optimized, mcu, frequency, port, programmer);
+        return CompilerParams(verbose, c_ffi, cwd, command, main, name, target, optimized, mcu, frequency, port, programmer, ffi_path);
     }
 };

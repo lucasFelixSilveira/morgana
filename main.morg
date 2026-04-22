@@ -2,8 +2,8 @@ comptime _start
 
 i32 main() {
 _0 = alloc ptr
-_1 = constant "Hello, world! My name is Lucas!"
+_1 = constant "Hello, world! My name is Lucas! bruh"
 store _0 _1
 _2 = load _0
-call myprint(_2)
+call println(_2)
 }
