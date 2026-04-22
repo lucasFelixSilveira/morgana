@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blocks.hpp"
+#include "call.hpp"
 #include "checkouts.hpp"
 #include "function.hpp"
 #include "puts.hpp"
@@ -11,6 +12,7 @@
 #include "symbols.hpp"
 #include "../compiler_outputs.hpp"
 #include "types/integer.hpp"
+#include "types/ptr.hpp"
 #include <cstdint>
 #include <iostream>
 #include <regex>
@@ -33,8 +35,10 @@
     X(FUNCTION, 100) \
     X(EPILOGUE, 101) \
     X(RET,      102) \
+    X(CALL,     103) \
     X(ALLOC,    200) \
     X(STORE,    201) \
+    X(LOAD,     202) \
 
 #define X(name, id) name = id,
 enum parse_kind : int32_t { MORGANA_PARSER_NODE_FIELDS };
@@ -54,9 +58,12 @@ using ParseResult = std::tuple<parse_kind, std::variant<
     storage,
     puts_t,
     ret_t,
+    call_t,
 
     /* declarations */
-    declaration<symbol>
+    declaration<symbol>,
+    declaration<call_t>,
+    declaration<std::string>
 >>;
 
 template<typename T>
@@ -67,7 +74,7 @@ auto second(T x) { return std::get<1>(x); }
 
 using ParseResults = std::vector<ParseResult>;
 
-#define MORGANA_STATEMENT_FUNCTION_ARGUMENTS int& i, std::vector<std::string>& tokens, std::string identifier, ParseResults& result
+#define MORGANA_STATEMENT_FUNCTION_ARGUMENTS int& i, std::vector<std::string>& tokens, std::string identifier, ParseResults& result, bool is_declaration
 
 #define X(id, def, fn) void fn(MORGANA_STATEMENT_FUNCTION_ARGUMENTS);
 MORGANA_PARSER_STATEMENTS_FIELDS
@@ -158,7 +165,7 @@ ParseResults parse(std::vector<std::string> tokens) {
 
                 /* Auto caller from all the statements who need to be used
                  * after a definition. */
-                #define X(id, def, fn) if( operation == id && def ) { fn(i, tokens, first, result); continue; }
+                #define X(id, def, fn) if( operation == id && def != 0 ) { fn(i, tokens, first, result, true); continue; }
                 MORGANA_PARSER_STATEMENTS_FIELDS
                 #undef X
             } continue;
@@ -166,7 +173,7 @@ ParseResults parse(std::vector<std::string> tokens) {
             case ST_STATEMENT: {
                 /* Auto caller from all statements who DO NOT need to be used
                  * after a definition. */
-                #define X(id, def, fn) if( first == id && (! def ) ) { fn(i, tokens, first, result); continue; }
+                #define X(id, def, fn) if( first == id && (def == 0 || def == whatever) ) { fn(i, tokens, first, result, false); continue; }
                 MORGANA_PARSER_STATEMENTS_FIELDS
                 #undef X
             } continue;
@@ -192,6 +199,46 @@ void alloc(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     result.push_back({ parse_kind::ALLOC, declaration });
 }
 
+void call(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    auto err = [&](int j) { (j == 0) ? CompilerOutputs::Fatal("After a `call` you need to place a valid function")
+                                     : CompilerOutputs::Fatal("You need to place a valid value in a call argument"); };
+
+    if( i + 1 >= tokens.size() ) err(0);
+
+    std::string tk = tokens.at(++i);
+    std::regex func = std::regex("(.*)\\((.*)");
+    std::smatch matches;
+    if(! std::regex_search(tk, matches, func) ) err(0);
+
+    std::string function = matches[1];
+    std::string arguments = matches[2];
+    std::vector<std::string> args({});
+
+    while(1) {
+        char ch = arguments[arguments.length()-1];
+        if( ch == ')' || ch == ',' ) args.push_back(arguments.substr(0, arguments.length()-1));
+        if( ch == ')' ) break;
+
+        arguments = tokens.at(++i);
+    }
+
+    if( is_declaration ) result.push_back({ parse_kind::CALL, declaration<call_t> { identifier, call_t(function, args) } });
+    else result.push_back({ parse_kind::CALL, call_t(function, args) });
+}
+
+void load(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
+    auto err = [&]() { CompilerOutputs::Fatal("After a `load` you need to place a valid allocation"); };
+    if( i + 1 >= tokens.size() ) err();
+
+    std::string alloc = tokens.at(++i);
+    STARTS_WITH check = starts_expr(alloc);
+    if( check != STARTS_WITH::ST_IDENTIFIER ) err();
+
+    if(! block::lookup(block::allocations, alloc) ) block::error(block::allocations, alloc);
+
+    result.push_back({ parse_kind::LOAD, declaration<std::string> { identifier, alloc } });
+}
+
 /* Store statement implementation - [DO NOT NEED DECLARATION]
  * - Store was used to store a value into a memory space. */
 void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
@@ -214,7 +261,10 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
         case STARTS_WITH::ST_IDENTIFIER: {
             if( block::lookup(block::constants, value) ) {
                 auto [_, content] = block::peek(block::constants, value);
-                value = content;
+                if( content.empty() ) {
+                    auto& top = strings_stack.top();
+                    if( top.find(value) == top.end() ) err(1);
+                }
                 break;
             }
         } break;
@@ -223,7 +273,6 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
 
     auto [_, symbol] = block::peek(block::allocations, expr);
     if( std::holds_alternative<morgana_integer>(symbol) ) {
-
         auto int_t = std::get<morgana_integer>(symbol);
         if(! int_t.check(value) ) err(1);
     }
@@ -277,7 +326,7 @@ void constant(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
             top.insert({identifier, value});
             strings_stack.pop();
             strings_stack.push(top);
-            block::push_back(block::constants, block::constant_t { identifier, identifier });
+            block::push_back(block::constants, block::constant_t { identifier, std::string() });
         } break;
         default: err();
     }

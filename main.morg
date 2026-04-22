@@ -1,7 +1,9 @@
 comptime _start
 
-i8 main() {
-    value = constant "Hello, World!\n"
-    puts value
-    ret 1
+i32 main() {
+_0 = alloc ptr
+_1 = constant "Hello, world! My name is Lucas!"
+store _0 _1
+_2 = load _0
+call myprint(_2)
 }

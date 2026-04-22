@@ -8,8 +8,11 @@
 #include <stack>
 #include <stddef.h>
 #include "libs/linux/include/runa.hpp"
+#include "parser/call.hpp"
 #include "parser/ret.hpp"
+#include "parser/statements.hpp"
 #include "parser/types/integer.hpp"
+#include "parser/types/ptr.hpp"
 #include "runa.hpp"
 #include "params.hpp"
 #include "parser/parser.hpp"
@@ -23,6 +26,9 @@
 
 bool is_number(std::string &str)
 { return std::regex_match(str, std::regex("[-]?[0-9]+")); }
+
+bool is_identifier(std::string &str)
+{ return std::regex_match(str, std::regex("[A-Za-z_][A-Za-z0-9_]*")); }
 
 int function_id = 0;
 
@@ -64,7 +70,7 @@ function fn;
 struct Symbols;
 struct SPOS {
     int stack_position;
-    struct { int bytes; int matrix; bool ptr; } data;
+    struct { int bytes; bool ptr; } data;
     static SPOS from(Symbols&, symbol);
 };
 
@@ -99,12 +105,16 @@ struct Symbols {
 SPOS SPOS::from(Symbols& sym, symbol s) {
     if( std::holds_alternative<morgana_integer>(s) ) {
         auto value = std::get<morgana_integer>(s);
-        return SPOS{ sym.stack_pos + (value.bits / 8), { (value.bits / 8), value.matrix(), false } };
+        return SPOS{ sym.stack_pos + (value.bits / 8), { (value.bits / 8), false } };
+    };
+    if( std::holds_alternative<morgana_ptr>(s) ) {
+        auto value = std::get<morgana_ptr>(s);
+        char bytes = 8;
+        return SPOS{ sym.stack_pos + bytes, { bytes, true } };
     };
     return {};
 }
 
-strings pendent_strings;
 void morgana_push_ctx(function data) {
     fn = data;
     ParseResults results = parse(data.body);
@@ -331,95 +341,88 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
 
         case parse_kind::STORE: {
             auto store = std::get<storage>(second(node));
-            add_fields(6);
 
-            SPOS lhs_value, rhs_value = symbols.lookup(store.identifier);
+            SPOS dest = symbols.lookup(store.identifier);
 
+            add_field();
             runa_push_field(runa, (char*) "dest",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) rhs_value.stack_position }});
+            RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) dest.stack_position }});
 
-            size_t val = 0;
-            size_t stack = 0;
-            size_t lhs = 0, rhs = 0;
-            size_t is_literal = is_number(store.value) || ((! is_number(store.value)) && std::holds_alternative<size_t>(symbols.preprocessor.lookup(store.value)));
-
-            if( is_literal ) {
-                if( is_number(store.value) ) val = (size_t) std::stoi(store.value);
-                else val = std::get<size_t>(symbols.preprocessor.lookup(store.value));
-            } else {
-                lhs_value =  symbols.lookup(store.value);
-                stack = (size_t) lhs_value.stack_position;
+            bool constant_string = false;
+            for( auto& [name, _] : strings_stack.top() ) {
+                if( name == store.value ) constant_string = true;
             }
 
-            rhs = rhs_value.data.bytes;
-            if( is_literal ) lhs = rhs;
-            else lhs = lhs_value.data.bytes;
-
-            runa_push_field(runa, (char*) "lhs",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = lhs }});
-
-            runa_push_field(runa, (char*) "rhs",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = rhs }});
-
-            runa_push_field(runa, (char*) "value",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = val }});
-
-            runa_push_field(runa, (char*) "stack",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = stack }});
-
-            runa_push_field(runa, (char*) "is_literal",
-            RunaValueFFI { runa_integer, RunaValueData { .integer = is_literal }});
+            if( constant_string ) {
+                std::string identifier = ".fn" + std::to_string(function_id) + "." + store.value;
+                add_field();
+                runa_push_field(runa, (char*) "src",
+                RunaValueFFI { runa_string, RunaValueData { .string = identifier.c_str() } } );
+                break;
+            }
         } break;
 
-    //     case ParseResultKind::Load: {
-    //         auto [identifier, load] = std::get<declaration<std::string>>(second(node));
-    //         symbols.add(identifier, symbols.lookup(load));
-    //     } break;
+        case parse_kind::LOAD: {
+            auto [identifier, load] = std::get<declaration<std::string>>(second(node));
+            symbols.add(identifier, symbols.lookup(load));
+        } break;
 
-    //     case ParseResultKind::Comptime: {
-    //         auto identifier = std::get<std::string>(second(node));
-    //         add_fields(1);
-    //         runa_push_field(runa, (char*) "identifier",
-    //         RunaValueFFI { runa_string, RunaValueData { .string = identifier.c_str() }});
-    //     } break;
+        case parse_kind::CALL: {
+            call_t call;
 
+            if( std::holds_alternative<call_t>(second(node)) ) call = std::get<call_t>(second(node));
 
-    //     case ParseResultKind::Operation: {
-    //         auto [identifier, operation] = std::get<declaration<morgana_operation>>(second(node));
+            auto argument = [&](int index, int tag, std::string value, int bits = 0) {
+                runa_push_field(runa, (char*) "index",
+                RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) index } });
+                add_field();
 
-    //         if( is_number(operation.lhs) && is_number(operation.rhs) ) {
-    //             size_t val;
-    //             if( operation.instruction == "add" ) val = std::stoi(operation.lhs) + std::stoi(operation.rhs);
-    //             if( operation.instruction == "sub" ) val = std::stoi(operation.lhs) - std::stoi(operation.rhs);
-    //             if( operation.instruction == "mul" ) val = std::stoi(operation.lhs) * std::stoi(operation.rhs);
-    //             if( operation.instruction == "div" ) val = std::stoi(operation.lhs) / std::stoi(operation.rhs);
-    //             symbols.preprocessor.add(identifier, val);
-    //             reset_fields();
-    //             break;
-    //         }
+                switch(tag) {
+                    case runa_integer: {
+                        add_fields(2);
 
-    //         Preprocessor::value lhs;
-    //         Preprocessor::value rhs;
+                        runa_push_field(runa, (char*) "value",
+                        RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) std::stol(value) } });
 
-    //         if( is_number(operation.lhs) ) lhs = Preprocessor::value((size_t) std::stoi(operation.lhs));
-    //         else lhs = symbols.preprocessor.lookup(operation.lhs);
+                        runa_push_field(runa, (char*) "typeof",
+                        RunaValueFFI { runa_string, RunaValueData { .string = (char*) "integer" } });
+                    } break;
 
-    //         if( is_number(operation.rhs) ) rhs = Preprocessor::value((size_t) std::stoi(operation.rhs));
-    //         else rhs = symbols.preprocessor.lookup(operation.rhs);
+                    case whatever: {
+                        add_fields(3);
 
-    //         size_t val;
+                        runa_push_field(runa, (char*) "value",
+                        RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() } });
 
-    //         if(! ( std::holds_alternative<std::monostate>(lhs) || std::holds_alternative<std::monostate>(rhs) ) ) {
-    //             if( operation.instruction == "add" ) val = std::get<size_t>(lhs) + std::get<size_t>(rhs);
-    //             if( operation.instruction == "sub" ) val = std::get<size_t>(lhs) - std::get<size_t>(rhs);
-    //             if( operation.instruction == "mul" ) val = std::get<size_t>(lhs) * std::get<size_t>(rhs);
-    //             if( operation.instruction == "div" ) val = std::get<size_t>(lhs) / std::get<size_t>(rhs);
-    //             symbols.preprocessor.add(identifier, val);
-    //             reset_fields();
-    //             break;
-    //         }
+                        runa_push_field(runa, (char*) "typeof",
+                        RunaValueFFI { runa_string, RunaValueData { .string = (char*) "whatever" } });
 
-    //     }
+                        runa_push_field(runa, (char*) "bits",
+                        RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) bits } });
+                    } break;
+                }
+
+                runa_spawn_function(runa, (char*) "argument", (runa_callback)cap);
+            };
+
+            int i = 0;
+            reset_fields();
+            for( std::string arg : call.args ) {
+                if( is_number(arg) ) { argument(i++, runa_integer, arg); }
+                if( is_identifier(arg) ) {
+                    auto s = symbols.lookup(arg);
+                    argument(i++, whatever, std::to_string(s.stack_position), s.data.bytes * 8);
+                }
+            }
+            reset_fields();
+            add_fields(2);
+
+            runa_push_field(runa, (char*) "kind",
+            RunaValueFFI { runa_integer, RunaValueData { .integer = parse_kind::CALL }});
+
+            runa_push_field(runa, (char*) "identifier",
+            RunaValueFFI { runa_string, RunaValueData { .string = call.identifier.c_str() } });
+        }
     }
 }
 
