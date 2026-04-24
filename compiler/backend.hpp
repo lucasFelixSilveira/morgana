@@ -121,7 +121,7 @@ struct Backend {
                         return;
                     }
 
-                    std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,console -Wl,--entry,_main";
+                    std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,windows -Wl,--entry,WinMain";
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
                     return;
                 }
