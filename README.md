@@ -45,23 +45,109 @@ $ morgana build -o x86_64-optimized
 ## What official extensors are already implemented?
 <table>
     <tr>
-    <td>MCU (AVR)</td>
-    <td>MCU (xtensa)</td>
-    <td>CPU (x86_64)</td>
-    <td>CPU (i386)</td>
-    <td>CPU (ARM)</td>
-    <td>GPU (NVIDIA)</td>
-    <td>GPU (AMD)</td>
+        <td></td>
+        <td>Linux</td>
+        <td>Windows</td>
+        <td>Android</td>
+        <td>MacOS / IOS</td>
+        <td>Embeded boards</td>
     </tr>
     <tr>
-    <td>🟡</td>
-    <td>❌</td>
-    <td>🟡</td>
-    <td>❌</td>
-    <td>❌</td>
-    <td>❌</td>
-    <td>❌</td>
+        <td>x86_64</td>
+        <td>🟡 (In progress)</td>
+        <td>🟡 (Just cross-compiling)</td>
+        <td> - </td>
+        <td>❌</td>
+        <td>❌</td>
     </tr>
+    <tr>
+        <td>i3286</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>aarch64</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>arm</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>risc-V</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>xtensa</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>🟠 (Pendent)</td>
+    </tr>
+    <tr>
+        <td>atmega</td>
+        <td> - </td>
+        <td> - </td>
+        <td> - </td>
+        <td> - </td>
+        <td>🟠 (Pendent)</td>
+    </tr>
+    <tr>
+        <td>NVIDIA</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>AMD (GPU)</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>Intel (GPU)</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    </tr>
+    <tr>
+        <td>AMD (GPU)</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    <tr>
+    <tr>
+        <td>Adreno</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+        <td>❌</td>
+    <tr>
 </table>
 
 - [See documentation here](./docs.md)
