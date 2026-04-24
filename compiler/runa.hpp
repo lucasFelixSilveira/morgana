@@ -1,8 +1,11 @@
 #pragma once
 
-#include "libs/linux/include/runa.hpp"
 #include <iostream>
 #include <string>
+
+extern "C" {
+    #include "libs/linux/include/runa.h"
+}
 
 int amount;
 void reset_fields() { amount = 0; }

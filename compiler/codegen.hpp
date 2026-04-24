@@ -7,7 +7,6 @@
 #include <regex>
 #include <stack>
 #include <stddef.h>
-#include "libs/linux/include/runa.hpp"
 #include "parser/call.hpp"
 #include "parser/ret.hpp"
 #include "parser/statements.hpp"
@@ -23,6 +22,10 @@
 #include <utility>
 #include <variant>
 #include <vector>
+
+extern "C" {
+#include "libs/linux/include/runa.h"
+}
 
 bool is_number(std::string &str)
 { return std::regex_match(str, std::regex("[-]?[0-9]+")); }
