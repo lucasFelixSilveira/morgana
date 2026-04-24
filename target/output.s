@@ -1,10 +1,10 @@
 .text
-.globl _start
-_start:
+.globl WinMain
+WinMain:
+	subq $32, %rsp
 	call main
-	movq %rax, %rdi
-	movq $60, %rax
-	syscall
+	addq $32, %rsp
+	ret
 	
 .text
 .globl main
@@ -12,13 +12,15 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	movq $.fn0._1, -8(%rbp)
-	movq -8(%rbp), %rdi
+	subq $32, %rsp
+	lea .fn0._1(%rip), %rcx
+	movq %rcx, -8(%rbp)
+	movq -8(%rbp), %rcx
+	subq $32, %rsp
 	call println
+	addq $32, %rsp
 .LFE0:
-	.size main, .LFE0 - main
-	movq %rdi, %rax
 	leave
 	ret
 .data
-	.fn0._1: .string "Hello, world! My name is Lucas! bruh"
+	.fn0._1: .asciz "Hello, world! My name is Lucas! bruh"
