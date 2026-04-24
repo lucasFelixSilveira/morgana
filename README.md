@@ -133,14 +133,6 @@ $ morgana build -o x86_64-optimized
         <td>❌</td>
     </tr>
     <tr>
-        <td>AMD (GPU)</td>
-        <td>❌</td>
-        <td>❌</td>
-        <td>❌</td>
-        <td>❌</td>
-        <td>❌</td>
-    <tr>
-    <tr>
         <td>Adreno</td>
         <td>❌</td>
         <td>❌</td>
