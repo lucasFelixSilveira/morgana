@@ -49,24 +49,83 @@ struct Backend {
         std::stringstream breaker;
         breaker << "\n" << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET;
 
-        // Compile with AS from linux
-        if( params.target == "x86_64-linux" ) {
-            std::string as = "as \"" + s + "\" -o \"" + o + "\" > /dev/null 2>&1";
-            if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
+        auto const LINUX = 0, WINDOWS = 1, MACOS = 2;
+        auto sys = detectSystemInfo();
+        auto checkout = sys.os == "Linux" ? LINUX : (sys.os == "Darwin" ? MACOS : WINDOWS);
 
-            if( params.c_ffi ) {
-                std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-                if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI to object file using gcc");
+        switch (checkout) {
+            case LINUX: {
+                /* Compile from x86_64-linux without cross-compilation.
+                 *
+                 * 1. Use 'as' to compile the Morgana IR assembly output to an object file.
+                 * 2. Use 'gcc' to compile the C FFI source to an object file (if enabled).
+                 * 3. Use 'ld' to link the object files together into an executable.
+                 */
+                if( sys.arch == "x86_64" && params.target == "x86_64-linux" ) {
+                    std::string as = "as \"" + s + "\" -o \"" + o + "\" > /dev/null 2>&1";
+                    if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
-                std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-                if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link C FFI to Morgana IR object file using ld");
-                return;
-            }
+                    if( params.c_ffi ) {
+                        std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI to object file using gcc");
 
-            std::string ld = "ld \"" + o + "\" -o \"" + exe + "\" > /dev/null 2>&1";
-            if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
+                        std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link C FFI to Morgana IR object file using ld");
+                        return;
+                    }
 
-            return;
+                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\" > /dev/null 2>&1";
+                    if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
+                    return;
+                };
+
+                /* Cross-compilation for x86_64-windows using MinGW-w64 toolchain.
+                 *
+                 * 1. Use 'as' to assemble Morgana IR output to COFF object file.
+                 * 2. Use 'objcopy' to fix symbol underscores.
+                 * 3. Use 'gcc' as linker driver to produce final executable.
+                 * 4. If C FFI enabled, compile C source and link together.
+                 */
+                if( sys.arch == "x86_64" && params.target == "x86_64-windows" ) {
+                    bool mingw = CAND("x86_64-w64-mingw32-gcc", CAND("x86_64-w64-mingw32-as", CAND("x86_64-w64-mingw32-objcopy", end)));
+                    if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "https://www.mingw-w64.org/downloads/");
+
+                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                    if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
+
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                    if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert object file");
+
+                    std::string libpath = "/usr/x86_64-w64-mingw32/lib";
+                    FILE* find = popen("find /usr -name \"libmsvcrt.a\" 2>/dev/null | grep \"x86_64-w64-mingw32\" | head -1", "r");
+                    if( find ) {
+                        char buf[256];
+                        if( fgets(buf, sizeof(buf), find) ) {
+                            std::string path(buf);
+                            path.erase(path.find_last_not_of(" \n\r\t") + 1);
+                            size_t pos = path.find_last_of('/');
+                            if( pos != std::string::npos ) libpath = path.substr(0, pos);
+                        }
+                        pclose(find);
+                    }
+
+                    std::string link_flags = "-L\"" + libpath + "\" -lmsvcrt -lkernel32 -lmingw32 -lmingwex -Wl,--image-base,0x140000000";
+
+                    if( params.c_ffi ) {
+                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
+
+                        std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + ".ffi\" \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,windows -Wl,--entry,WinMain";
+                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
+
+                        return;
+                    }
+
+                    std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,console -Wl,--entry,_main";
+                    if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
+                    return;
+                }
+            } break;
         }
 
         if( params.target == "xtensa" ) {
