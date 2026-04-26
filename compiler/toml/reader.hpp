@@ -44,7 +44,6 @@ struct TOMLReader {
 
     TOMLReader::Values get(TOMLReader::Expr expr);
 
-
     std::string getrealtype(TOMLReader::Values field) {
         std::string err = "error when parse";
         if( std::holds_alternative<std::string>(field) ) return "string";
@@ -73,21 +72,44 @@ struct TOMLReader {
     }
 
 private:
+    // Função auxiliar para normalizar quebras de linha
+    std::string normalize_line_endings(const std::string& input) {
+        std::string output;
+        output.reserve(input.length());
+
+        for(size_t i = 0; i < input.length(); i++) {
+            if(input[i] == '\r') {
+                // Pula \r, só adiciona \n se não for seguido por outro \n
+                if(i + 1 < input.length() && input[i + 1] != '\n') {
+                    output += '\n';
+                }
+            } else {
+                output += input[i];
+            }
+        }
+
+        return output;
+    }
+
     Error getctx() {
-        std::ifstream file(this->path, std::ios::binary | std::ios::ate);
+        std::ifstream file(this->path, std::ios::binary);
         if(! file.is_open() ) return { "File can't be opened", -1 };
 
-        std::streamsize size = file.tellg();
-        if( size <= 0 ) return { "Empty file", -2 };
+        // Lê o arquivo inteiro
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string content = buffer.str();
 
-        file.seekg(0, std::ios::beg);
+        if( content.empty() ) return { "Empty file", -2 };
 
-        std::vector<char> buffer(size + 1);
-        if(! file.read(buffer.data(), size) ) return { "Failed to read file", -3 };
-        buffer[size] = '\0';
+        // Normaliza as quebras de linha para \n
+        this->ctx = normalize_line_endings(content);
 
-        this->ctx = std::string(buffer.data(), size);
         return { std::string(), 0 };
+    }
+
+    bool is_newline(char c) const {
+        return c == '\n';
     }
 
     std::tuple<bool, int> is_namespace(size_t i) const {
@@ -96,14 +118,14 @@ private:
         size_t start = i;
         i++;
 
-        while( i < ctx.length() && ctx[i] != ']' && ctx[i] != '\n' ) i++;
+        while( i < ctx.length() && ctx[i] != ']' && !is_newline(ctx[i]) ) i++;
         if( i < ctx.length() && ctx[i] == ']' ) return { true, static_cast<int>(i - start + 1) };
         return { false, 0 };
     }
 
     size_t skip_comment(size_t i) const {
         if(ctx[i] == '#')
-        /* -> */ while (i < ctx.length() && ctx[i] != '\n') i++;
+        /* -> */ while (i < ctx.length() && !is_newline(ctx[i])) i++;
         return i;
     }
 
@@ -231,7 +253,7 @@ private:
                         item.erase(0, item.find_first_not_of(" \t"));
                         item.erase(item.find_last_not_of(" \t") + 1);
 
-                        if( item.empty() ) int_array.push_back(std::stoi(item));
+                        if( !item.empty() ) int_array.push_back(std::stoi(item));
                     }
 
                     return int_array;
@@ -244,7 +266,7 @@ private:
                         item.erase(0, item.find_first_not_of(" \t"));
                         item.erase(item.find_last_not_of(" \t") + 1);
 
-                        if( item.empty() ) string_array.push_back(item);
+                        if( !item.empty() ) string_array.push_back(item);
                     }
 
                     return string_array;
@@ -290,7 +312,7 @@ TOMLReader::Values TOMLReader::get(TOMLReader::Expr expr) {
 
         if( in_target_namespace ) {
             size_t line_start = i;
-            while( i < file_length && ctx[i] != '\n' ) i++;
+            while( i < file_length && !is_newline(ctx[i]) ) i++;
 
             std::string line = ctx.substr(line_start, i - line_start);
 
@@ -359,10 +381,10 @@ TOMLReader::Values TOMLReader::get(TOMLReader::Expr expr) {
                 }
             }
 
-            if( i < file_length && ctx[i] == '\n' ) i++;
+            if( i < file_length && is_newline(ctx[i]) ) i++;
         } else {
-            while (i < file_length && ctx[i] != '\n') i++;
-            if( i < file_length && ctx[i] == '\n' ) i++;
+            while (i < file_length && !is_newline(ctx[i])) i++;
+            if( i < file_length && is_newline(ctx[i]) ) i++;
         }
     }
 
