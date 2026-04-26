@@ -20,7 +20,7 @@ public:
             while(std::getline(ss, path, ':')) {
                 std::string suffix = "";
                 #ifdef _WIN32
-                suffix = ".exe"
+                suffix = ".exe";
                 #endif
                 fs::path exe_path = fs::path(path).string() + command_name + suffix;
                 if( fs::exists(exe_path) && (fs::status(exe_path).permissions() & fs::perms::owner_exec) != fs::perms::none )
