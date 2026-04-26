@@ -81,6 +81,7 @@ MORGANA_PARSER_STATEMENTS_FIELDS
 #undef X
 
 ParseResults parse(std::vector<std::string> tokens) {
+    std::cout << "parser\n";
     ParseResults result;
     block::init();
     block::push_generic();

@@ -55,6 +55,7 @@ main(int argc, char **argv)
 
     /* Tokenization phase */
     std::vector<std::string> tokens = tokenize(src);
+    std::cout << "lexer\n";
 
     /* Parser phase */
     ParseResults results = parse(tokens);
@@ -64,6 +65,7 @@ main(int argc, char **argv)
 
     /* Code Generation phase */
     std::string generated = codegen(params, results);
+    std::cout << "codegen\n";
 
     /* Create target directory if it doesn't exist */
     MKDIR((std::filesystem::current_path().string() + "/target").c_str());
