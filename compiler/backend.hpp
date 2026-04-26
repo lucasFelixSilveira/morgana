@@ -184,12 +184,12 @@ struct Backend {
                         std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);
                         if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
 
-                        std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + ".ffi\" \"" + o + " \" -o \"" + exe + "\" -Wl,--subsystem,console -Wl,--entry,WinMain";
+                        std::string ld = "x86_64-w64-mingw32-gcc --nostartfiles -m64 \"" + o + ".ffi\" \"" + o + " \" -o \"" + exe + "\" -Wl,--subsystem,console -Wl,--entry,WinMain";
                         if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
                         return;
                     }
 
-                    std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" -Wl,--subsystem,console -Wl,--entry,WinMain";
+                    std::string ld = "x86_64-w64-mingw32-gcc --nostartfiles -m64 \"" + o + "\" -o \"" + exe + "\" -Wl,--subsystem,console -Wl,--entry,WinMain";
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
 
                     return;
