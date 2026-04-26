@@ -182,7 +182,7 @@ struct Backend {
                             "https://www.mingw-w64.org/downloads/"
                         );
 
-                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
+                    std::string as = "x86_64-w64-mingw32-as \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
                     std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
