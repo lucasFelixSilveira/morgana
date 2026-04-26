@@ -130,7 +130,30 @@ struct Backend {
             } break;
 
             case WINDOWS: {
-                std::cout << "\n\nWINDOWS WORKING\n\n";
+                if( sys.arch == "x86_64" && params.target == "x86_64-windows" ) {
+                    bool mingw = CAND("x86_64-w64-mingw32-gcc", CAND("x86_64-w64-mingw32wp-as", CAND("x86_64-w64-mingw32-objcopy", end)));
+                    if(! mingw ) CompilerOutputs::Fatal("Failed to find clang toolchain. Install it and try again." + breaker.str() + "https://github.com/llvm/llvm-project/releases/");
+
+                    std::string as = "x86_64-w64-mingw32wp-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
+                    if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
+
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert object file");
+
+                    if( params.c_ffi ) {
+                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);
+                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
+
+                        std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + ".ffi\" \"" + o + "\" -o \"" + exe + "\" -Wl,--subsystem,windows -Wl,--entry,WinMain";
+                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
+
+                        return;
+                    }
+
+                    std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" -Wl,--subsystem,console -Wl,--entry,WinMain";
+                    if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
+                    return;
+                }
             } break;
         }
 
