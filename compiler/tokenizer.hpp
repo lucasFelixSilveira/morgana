@@ -13,7 +13,9 @@ std::vector<std::string> tokenize(std::vector<char> src) {
     for( size_t i = 0; i < src.size(); i++ ) {
         char c = src[i];
 
-        if (in_string) {
+        if( c == '\r' ) continue;
+
+        if( in_string ) {
             token += c;
 
             if (c == '"') {

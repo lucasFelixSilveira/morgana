@@ -43,15 +43,15 @@ main(int argc, char **argv)
     if( params.command != "build" ) return 0;
 
     /* checks if the file is accessible */
-    std::ifstream file(params.main, std::ios::binary | std::ios::ate);
+    std::ifstream file(params.main, std::ios::binary);
     if(! file.is_open() ) CompilerOutputs::Fatal("Your main file is not valid. Try use -m to define the newest file");
 
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
+    std::string content;
+    std::getline(file, content, '\0');
 
-    std::vector<char> src(size);
+    content.erase(std::remove(content.begin(), content.end(), '\r'), content.end());
 
-    if(! file.read(src.data(), size) ) CompilerOutputs::Fatal("Your main file is not valid. Try use -m to define the newest file");
+    std::vector<char> src(content.begin(), content.end());
 
     /* Tokenization phase */
     std::vector<std::string> tokens = tokenize(src);
