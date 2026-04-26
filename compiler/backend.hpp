@@ -18,30 +18,64 @@
 // Versão melhorada - mais segura e eficiente
 #ifdef _WIN32
 #include <windows.h>
-#define CAND(x, y)                                                                                     \
-    ([]() -> bool {                                                                                    \
-        char* path = std::getenv("PATH");                                                              \
-        if(! path ) return false;                                                                      \
-        std::string path_str = path;                                                                   \
-        size_t start = 0, end;                                                                         \
-        while((end = path_str.find(';', start)) != std::string::npos) {                                \
-            std::string dir = path_str.substr(start, end - start);                                     \
-            std::string full_path = dir + "\\" + #x + ".exe";                                          \
-            DWORD attrs = GetFileAttributesA(full_path.c_str());                                       \
-            if( attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY) ) return true; \
-            start = end + 1;                                                                           \
-        }                                                                                              \
-        return false;                                                                                  \
-    }()) && (y)
+#include <string>
+#include <vector>
+
+inline bool __cmd_exists_win(const std::string& name) {
+    DWORD size = GetEnvironmentVariableA("PATH", nullptr, 0);
+    if (size == 0) return false;
+
+    std::string path(size, '\0');
+    GetEnvironmentVariableA("PATH", path.data(), size);
+
+    size_t start = 0;
+    while (true) {
+        size_t end = path.find(';', start);
+        std::string dir = path.substr(start, end - start);
+
+        // remove aspas
+        if (!dir.empty() && dir.front() == '"') dir.erase(0, 1);
+        if (!dir.empty() && dir.back() == '"') dir.pop_back();
+
+        std::string full = dir + "\\" + name + ".exe";
+
+        DWORD attr = GetFileAttributesA(full.c_str());
+        if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY))
+            return true;
+
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+
+    return false;
+}
+
+#define CAND(x, y) (__cmd_exists_win(#x) && (y))
 
 #else
 #include <unistd.h>
-#include <sys/stat.h>
-#define CAND(x, y)                                                                                     \
-    ([]() -> bool {                                                                                    \
-        std::string cmd = "command -v " + std::string(#x);                                             \
-        return std::system((cmd + " > /dev/null 2>&1").c_str()) == 0;                                  \
-    }()) && (y)
+#include <cstdlib>
+#include <sstream>
+#include <string>
+
+inline bool __cmd_exists_unix(const std::string& name) {
+    const char* path = std::getenv("PATH");
+    if (!path) return false;
+
+    std::stringstream ss(path);
+    std::string dir;
+
+    while (std::getline(ss, dir, ':')) {
+        std::string full = dir + "/" + name;
+        if (access(full.c_str(), X_OK) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+#define CAND(x, y) (__cmd_exists_unix(#x) && (y))
+
 #endif
 
 const bool end = true;
