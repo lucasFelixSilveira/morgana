@@ -7,6 +7,10 @@
 
 #define MORGANA_DEBUG false
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 struct CompilerOutputs {
 public:
     static void Log(std::string log);
