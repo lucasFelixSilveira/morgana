@@ -18,7 +18,13 @@
 #include "parser/function.hpp"
 #include "parser/storage.hpp"
 #include <string>
+#include <algorithm>
+#include <iostream>  // Adicionado para cout
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 #include <utility>
 #include <variant>
 #include <vector>
@@ -47,10 +53,18 @@ struct Preprocessor {
 
     Preprocessor() = default;
 
-    void push() { stack.push({}); }
-    void pop() { stack.pop(); }
+    void push() {
+        std::cout << "[DEBUG] Preprocessor::push()" << std::endl;
+        stack.push({});
+    }
+
+    void pop() {
+        std::cout << "[DEBUG] Preprocessor::pop()" << std::endl;
+        stack.pop();
+    }
 
     void add(std::string &identifier, value val) {
+        std::cout << "[DEBUG] Preprocessor::add() - identifier: " << identifier << std::endl;
         auto top = stack.top();
         top.push_back({ identifier, val });
         stack.pop();
@@ -58,12 +72,15 @@ struct Preprocessor {
     }
 
     value lookup(std::string &identifier) {
+        std::cout << "[DEBUG] Preprocessor::lookup() - identifier: " << identifier << std::endl;
         auto top = stack.top();
         for( auto &[id, val] : top ) {
             if(id == identifier) {
+                std::cout << "[DEBUG] Preprocessor::lookup() - found: " << identifier << std::endl;
                 return val;
             }
         }
+        std::cout << "[DEBUG] Preprocessor::lookup() - NOT found: " << identifier << std::endl;
         return value(std::monostate());
     }
 };
@@ -82,9 +99,12 @@ struct Symbols {
     Preprocessor preprocessor;
     std::stack<std::vector<std::pair<std::string, SPOS>>> stack;
 
-    Symbols() : stack_pos(0), stack() {}
+    Symbols() : stack_pos(0), stack() {
+        std::cout << "[DEBUG] Symbols constructor" << std::endl;
+    }
 
     void add(std::string &identifier, SPOS sym) {
+        std::cout << "[DEBUG] Symbols::add() - identifier: " << identifier << ", stack_pos: " << sym.stack_position << std::endl;
         auto top = stack.top();
         stack.pop();
         top.push_back({ identifier, sym });
@@ -93,9 +113,11 @@ struct Symbols {
     }
 
     SPOS lookup(std::string &identifier) {
+        std::cout << "[DEBUG] Symbols::lookup() - identifier: " << identifier << std::endl;
         auto top = stack.top();
         for( auto &[id, sp] : top ) {
             if(id == identifier) {
+                std::cout << "[DEBUG] Symbols::lookup() - found: " << identifier << " at position: " << sp.stack_position << std::endl;
                 return sp;
             }
         }
@@ -106,29 +128,37 @@ struct Symbols {
 };
 
 SPOS SPOS::from(Symbols& sym, symbol s) {
+    std::cout << "[DEBUG] SPOS::from()" << std::endl;
     if( std::holds_alternative<morgana_integer>(s) ) {
         auto value = std::get<morgana_integer>(s);
+        std::cout << "[DEBUG] SPOS::from() - integer, bits: " << value.bits << std::endl;
         return SPOS{ sym.stack_pos + (value.bits / 8), { (value.bits / 8), false } };
     };
     if( std::holds_alternative<morgana_ptr>(s) ) {
         auto value = std::get<morgana_ptr>(s);
         char bytes = 8;
+        std::cout << "[DEBUG] SPOS::from() - pointer" << std::endl;
         return SPOS{ sym.stack_pos + bytes, { bytes, true } };
     };
+    std::cout << "[DEBUG] SPOS::from() - unknown type" << std::endl;
     return {};
 }
 
 void morgana_push_ctx(function data) {
+    std::cout << "[DEBUG] morgana_push_ctx() - function: " << data.name << std::endl;
     fn = data;
     ParseResults results = parse(data.body);
+    std::cout << "[DEBUG] morgana_push_ctx() - parse results size: " << results.size() << std::endl;
     branches.push(*current);
     current = std::make_shared<iteration>(0, results);
+    std::cout << "[DEBUG] morgana_push_ctx() - done" << std::endl;
 }
 
 std::string output;
 std::string ident;
 
 void tabs(Runa *runa) {
+    std::cout << "[DEBUG] tabs() called" << std::endl;
     RunaValueFFI val = runa_peek_arg(runa, 0);
     size_t count = val.data.integer;
     ident = std::string(count, '\t');
@@ -136,6 +166,7 @@ void tabs(Runa *runa) {
 }
 
 void write(Runa *runa) {
+    std::cout << "[DEBUG] write() called" << std::endl;
     RunaValueFFI val = runa_peek_arg(runa, 0);
     char *str = runa_value_to_string(runa, val);
     output += std::string(str);
@@ -144,61 +175,114 @@ void write(Runa *runa) {
 }
 
 void writeln(Runa *runa) {
+    std::cout << "[DEBUG] writeln() called" << std::endl;
     RunaValueFFI val = runa_peek_arg(runa, 0);
     char *str = runa_value_to_string(runa, val);
+    #ifdef _WIN32
+    output += ident + std::string(str) + "\r\n";
+    #else
     output += ident + std::string(str) + "\n";
+    #endif
     runa_optional(RUNA_FREE_STRING_BY_VALUE, runa_str_free, str, val);
     runa_value_free(val);
 }
-
 
 void table(Symbols& symbols, Runa *runa, ParseResult& ast);
 void epilogue(Symbols& symbols, Runa *runa);
 void pendent_strings_make(Runa *runa);
 
 std::string codegen(CompilerParams& params, ParseResults ast) {
+    std::cout << "[DEBUG] codegen() started" << std::endl;
+    std::cout << "[DEBUG] Target: " << params.target << std::endl;
+
     std::string path = Runtime::get_executable_path("morgana");
+    std::cout << "[DEBUG] Executable path: " << path << std::endl;
+
+    #ifdef _WIN32
+    std::replace(path.begin(), path.end(), '/', '\\');
+    std::cout << "[DEBUG] Normalized path (Windows): " << path << std::endl;
+    #endif
+
     auto [extensorExists, extensorPath] = Runtime::check_extensors(path, params.target);
+    std::cout << "[DEBUG] Extensor exists: " << extensorExists << std::endl;
+    std::cout << "[DEBUG] Extensor path: " << extensorPath << std::endl;
 
     if(! extensorExists ) {
         CompilerOutputs::Fatal("No extensor found for target: " + params.target);
         return "";
     }
 
+    #ifdef _WIN32
+    std::replace(extensorPath.begin(), extensorPath.end(), '/', '\\');
+    std::cout << "[DEBUG] Normalized extensor path (Windows): " << extensorPath << std::endl;
+    #endif
+
     CompilerOutputs::Info("Extensor found: " + extensorPath);
     CompilerOutputs::Info("Generating code via extensor");
 
     current = std::make_shared<iteration>(0, ast);
+    std::cout << "[DEBUG] Current iteration created" << std::endl;
 
     Symbols symbols;
+    std::cout << "[DEBUG] Symbols object created" << std::endl;
 
     Runa *runa = runa_start();
-    runa_needs(runa, write, writeln, tabs);
-    runa_loadfile(runa, (char*) extensorPath.c_str());
+    std::cout << "[DEBUG] Runa started" << std::endl;
 
+    runa_needs(runa, write, writeln, tabs);
+    std::cout << "[DEBUG] Runa needs configured" << std::endl;
+
+    std::vector<char> extensorPathCStr(extensorPath.begin(), extensorPath.end());
+    extensorPathCStr.push_back('\0');
+    std::cout << "[DEBUG] Loading extensor file: " << extensorPathCStr.data() << std::endl;
+
+    runa_loadfile(runa, extensorPathCStr.data());
+
+    int iteration_count = 0;
     while(true) {
+        iteration_count++;
+        std::cout << "[DEBUG] Iteration " << iteration_count << std::endl;
+
         reset_fields();
+        std::cout << "[DEBUG] Fields reset" << std::endl;
 
         auto& [index, data] = *current;
+        std::cout << "[DEBUG] Current index: " << index << ", data size: " << data.size() << std::endl;
 
         if( index < data.size() ) {
+            std::cout << "[DEBUG] Processing node " << index << std::endl;
             index++;
+            std::cout << "[DEBUG] Calling table()" << std::endl;
             table(symbols, runa, data.at(index - 1));
+            std::cout << "[DEBUG] Table() completed, spawning function" << std::endl;
             runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
+            std::cout << "[DEBUG] Function spawned" << std::endl;
             continue;
         } else {
-            if( branches.empty() ) break;
-            else { epilogue(symbols, runa); pendent_strings_make(runa); }
+            std::cout << "[DEBUG] End of data reached" << std::endl;
+            if( branches.empty() ) {
+                std::cout << "[DEBUG] Branches empty, breaking loop" << std::endl;
+                break;
+            } else {
+                std::cout << "[DEBUG] Calling epilogue and pendent_strings_make" << std::endl;
+                epilogue(symbols, runa);
+                pendent_strings_make(runa);
+            }
             current = std::make_shared<iteration>(branches.top());
             branches.pop();
+            std::cout << "[DEBUG] New current iteration set" << std::endl;
         }
     }
 
+    std::cout << "[DEBUG] Code generation completed, output size: " << output.size() << std::endl;
     runa_free(runa);
+    std::cout << "[DEBUG] Runa freed" << std::endl;
+
     return output;
 }
 
 void epilogue(Symbols& symbols, Runa *runa) {
+    std::cout << "[DEBUG] epilogue() started" << std::endl;
     reset_fields();
 
     runa_push_field(runa, (char*) "kind",
@@ -218,9 +302,11 @@ void epilogue(Symbols& symbols, Runa *runa) {
     symbols.stack_pos = 0;
     add_fields(4);
     runa_spawn_function(runa, (char*) "codegen", (runa_callback)cap);
+    std::cout << "[DEBUG] epilogue() completed" << std::endl;
 }
 
 void pendent_strings_make(Runa *runa) {
+    std::cout << "[DEBUG] pendent_strings_make() started" << std::endl;
     reset_fields();
 
     add_field();
@@ -231,6 +317,7 @@ void pendent_strings_make(Runa *runa) {
     reset_fields();
     add_fields(3);
     for( auto& [name, value] : strings_stack.top() ) {
+        std::cout << "[DEBUG] Processing string: " << name << " = " << value << std::endl;
         runa_push_field(runa, (char*) "kind",
         RunaValueFFI { runa_integer, RunaValueData { .integer = parse_kind::STRINGS }});
 
@@ -245,19 +332,27 @@ void pendent_strings_make(Runa *runa) {
 
     strings_stack.pop();
     function_id++;
+    std::cout << "[DEBUG] pendent_strings_make() completed, function_id: " << function_id << std::endl;
 
     reset_fields();
 }
 
 
 void table(Symbols& symbols, Runa *runa, ParseResult& node) {
+    std::cout << "[DEBUG] table() started" << std::endl;
+
     runa_push_field(runa, (char*) "kind", RunaValueFFI {
         runa_integer, RunaValueData { .integer = (size_t) first(node) }
     });
 
     add_field();
-    switch(first(node)) {
+
+    parse_kind kind = first(node);
+    std::cout << "[DEBUG] Processing kind: " << (int)kind << std::endl;
+
+    switch(kind) {
         case parse_kind::FUNCTION: {
+            std::cout << "[DEBUG] Case FUNCTION" << std::endl;
             symbols.stack.push({});
             symbols.preprocessor.push();
 
@@ -274,6 +369,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
         } break;
 
         case parse_kind::RET: {
+            std::cout << "[DEBUG] Case RET" << std::endl;
             auto data = std::get<ret_t>(second(node));
             add_fields(2);
 
@@ -304,6 +400,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
         } break;
 
         case parse_kind::PUTS: {
+            std::cout << "[DEBUG] Case PUTS" << std::endl;
             auto data = std::get<puts_t>(second(node));
             add_fields(3);
 
@@ -317,25 +414,15 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) function_id }});
         } break;
 
-        // case ParseResultKind::Label:
-        // case ParseResultKind::Branch: {
-        //     auto data = std::get<std::string>(second(node));
-        //     add_fields(2);
-
-        //     runa_push_field(runa, (char*) "fn",
-        //     RunaValueFFI { runa_string, RunaValueData { .string = fn.name.c_str() }});
-
-        //     runa_push_field(runa, (char*) "name",
-        //     RunaValueFFI { runa_string, RunaValueData { .string = data.c_str() }});
-        // } break;
-
         case parse_kind::ALLOC: {
+            std::cout << "[DEBUG] Case ALLOC" << std::endl;
             auto [identifier, type] = std::get<declaration<symbol>>(second(node));
             SPOS to = SPOS::from(symbols, type);
             symbols.add(identifier, to);
         } break;
 
         case parse_kind::COMPTIMNE: {
+            std::cout << "[DEBUG] Case COMPTIMNE" << std::endl;
             auto data = std::get<std::string>(second(node));
             add_field();
             runa_push_field(runa, (char*) "instruction",
@@ -343,6 +430,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
         } break;
 
         case parse_kind::STORE: {
+            std::cout << "[DEBUG] Case STORE" << std::endl;
             auto store = std::get<storage>(second(node));
 
             SPOS dest = symbols.lookup(store.identifier);
@@ -366,16 +454,19 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
         } break;
 
         case parse_kind::LOAD: {
+            std::cout << "[DEBUG] Case LOAD" << std::endl;
             auto [identifier, load] = std::get<declaration<std::string>>(second(node));
             symbols.add(identifier, symbols.lookup(load));
         } break;
 
         case parse_kind::CALL: {
+            std::cout << "[DEBUG] Case CALL" << std::endl;
             call_t call;
 
             if( std::holds_alternative<call_t>(second(node)) ) call = std::get<call_t>(second(node));
 
             auto argument = [&](int index, int tag, std::string value, int bits = 0) {
+                std::cout << "[DEBUG] argument() - index: " << index << ", tag: " << tag << ", value: " << value << std::endl;
                 runa_push_field(runa, (char*) "index",
                 RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) index } });
                 add_field();
@@ -411,6 +502,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             int i = 0;
             reset_fields();
             for( std::string arg : call.args ) {
+                std::cout << "[DEBUG] Processing argument: " << arg << std::endl;
                 if( is_number(arg) ) { argument(i++, runa_integer, arg); }
                 if( is_identifier(arg) ) {
                     auto s = symbols.lookup(arg);
@@ -427,363 +519,5 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             RunaValueFFI { runa_string, RunaValueData { .string = call.identifier.c_str() } });
         }
     }
+    std::cout << "[DEBUG] table() completed" << std::endl;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// struct ASTIterator {
-//     ParseResults ast;
-//     size_t current_index;
-// };
-
-// #define JSON_ENCODER(ss, vec, constructor)                                    \
-//     {                                                                         \
-//         auto build = [&](auto& iter) -> std::string constructor;              \
-//         ss << "{ \"data\": [";                                                \
-//         bool first = true;                                                    \
-//         for( auto iter : vec ) {                                              \
-//             ss << ((first) ? "" : ", ") << build(iter) << "";                 \
-//             if( first ) first = !first;                                       \
-//         };                                                                    \
-//         ss << "] }";                                                          \
-//     }
-
-// #define CALL_FIELD_FOR_SYMBOLS(ret, symbol, field)                            \
-//     [&]() -> ret {                                                            \
-//         if( std::holds_alternative<morgana_integer>(symbol) )                 \
-//         /* -> */ return std::get<morgana_integer>(symbol).field();            \
-//         if( std::holds_alternative<morgana_tuple>(symbol) )                   \
-//         /* -> */ return std::get<morgana_tuple>(symbol).field();              \
-//         return ret();                                                         \
-//     }()
-
-
-
-// std::stack<std::shared_ptr<ASTIterator>> iterators;
-// std::shared_ptr<ASTIterator> current_iterator = nullptr;
-
-// static void morgana_push_ctx(std::vector<std::string> ctx) {
-//     if( current_iterator ) {
-//         auto saved_iterator = std::make_shared<ASTIterator>();
-//         saved_iterator->ast = current_iterator->ast;
-//         saved_iterator->current_index = current_iterator->current_index;
-//         iterators.push(saved_iterator);
-//     }
-
-//     auto new_iterator = std::make_shared<ASTIterator>();
-//     new_iterator->ast = parse(ctx);
-//     new_iterator->current_index = 0;
-//     current_iterator = new_iterator;
-// }
-
-// static bool file_exists(const std::string& path) {
-//     return access(path.c_str(), R_OK) == 0;
-// }
-
-// static std::string find_lua_module(const std::string& dir, const std::string& modname) {
-//     std::string modpath = modname;
-//     std::replace(modpath.begin(), modpath.end(), '.', '/');
-
-//     std::vector<std::string> candidates = {
-//         dir + modname + ".lua",
-//         dir + modname + "/init.lua"
-//     };
-
-//     for( const auto& candidate : candidates )
-//         if( file_exists(candidate) ) return candidate;
-
-//     return "";
-// }
-
-// static void push_ast_node_to_lua(lua_State* L, ParseResult& node) {
-//     lua_newtable(L);
-
-//     lua_pushinteger(L, first(node));
-//     lua_setfield(L, -2, "kind");
-
-//     switch(first(node)) {
-//         case ParseResultKind::Function: {
-//             auto data = std::get<function>(second(node));
-//             std::stringstream ss;
-
-//             // append the current iterator on the stack
-//             // and then put the function iterator on the
-//             // current_iterator global variable
-//             morgana_push_ctx(data.body);
-
-//             // store the function name on the table
-//             // for lua know all the IDs of the function
-//             lua_pushstring(L, data.name.c_str());
-//             lua_setfield(L, -2, "name");
-
-//             // store the function parameters type
-//             // using JSON encoder
-//             JSON_ENCODER(ss, data.argst, {
-//                 if( std::holds_alternative<morgana_strong_alias>(iter) ) {
-//                     auto data = std::get<0>(std::get<morgana_strong_alias>(iter));
-//                     if( std::holds_alternative<morgana_integer>(data) ) {
-//                         auto x = std::get<morgana_integer>(data);
-//                         iter = symbol(x);
-//                     }
-//                 }
-
-//                 if( std::holds_alternative<morgana_integer>(iter) ) return std::get<morgana_integer>(iter).json();
-//                 return std::string();
-//             });
-//             lua_pushstring(L, ss.str().c_str());
-//             lua_setfield(L, -2, "params");
-
-//             ss.str("");
-//             ss.clear();
-//         } break;
-
-//         case ParseResultKind::Loop: {
-//             auto data = std::get<loop>(second(node));
-
-//             // append the current iterator on the stack
-//             // and then put the loop iterator on the
-//             // current_iterator global variable
-//             morgana_push_ctx(data.body);
-//         } break;
-
-//         case ParseResultKind::BranchEqualZero:
-//         case ParseResultKind::BranchNotEqualZero: {
-//             auto data = std::get<simplebranch>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             lua_pushstring(L, second(data).c_str());
-//             lua_setfield(L, -2, "label");
-//         } break;
-
-//         case ParseResultKind::BranchGrant:
-//         case ParseResultKind::BranchLess:
-//         case ParseResultKind::BranchGrantEqual:
-//         case ParseResultKind::BranchLessEqual: {
-//             auto data = std::get<branchmeasure>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "first");
-
-//             lua_pushstring(L, second(data).c_str());
-//             lua_setfield(L, -2, "second");
-
-//             lua_pushstring(L, third(data).c_str());
-//             lua_setfield(L, -2, "label");
-//         } break;
-
-//         case ParseResultKind::Branch: {
-//             auto data = std::get<std::string>(second(node));
-
-//             lua_pushstring(L, data.c_str());
-//             lua_setfield(L, -2, "label");
-//         } break;
-
-//         case ParseResultKind::Label: {
-//             auto data = std::get<std::string>(second(node));
-
-//             lua_pushstring(L, data.c_str());
-//             lua_setfield(L, -2, "identifier");
-//         } break;
-
-//         case ParseResultKind::AddInPtr: {
-//             auto data = std::get<declaration<addinptr>>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             addinptr into = second(data);
-//             lua_pushstring(L, first(into).c_str());
-//             lua_setfield(L, -2, "address");
-
-//             lua_pushinteger(L, second(into));
-//             lua_setfield(L, -2, "offset");
-//         } break;
-
-//         case ParseResultKind::Wait:
-//         case ParseResultKind::WaitMS: {
-//             auto data = std::get<int>(second(node));
-
-//             // calculate the delay in milliseconds
-//             // considering the base unit is seconds
-//             // for the `wait` keyword.
-//             const int second = 1000;
-//             int base = ParseResultKind::Wait == first(node);
-//             int mul = base * second + !base;
-//             lua_pushinteger(L, data * mul);
-//             lua_setfield(L, -2, "ms");
-//         } break;
-
-//         case ParseResultKind::Turn: {
-//             auto data = std::get<turn>(second(node));
-
-//             lua_pushinteger(L, data.pin);
-//             lua_setfield(L, -2, "pin");
-
-//             lua_pushboolean(L, data.toggle);
-//             lua_setfield(L, -2, "toggle");
-//         } break;
-
-//         case ParseResultKind::Read: {
-//             auto data = std::get<declaration<mcu_read>>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             lua_pushinteger(L, first(second(data)));
-//             lua_setfield(L, -2, "pin");
-
-//             lua_pushboolean(L, second(second(data)));
-//             lua_setfield(L, -2, "digital");
-//         } break;
-
-//         case ParseResultKind::Alloc: {
-//             auto data = std::get<declaration<symbol>>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             auto type = second(data);
-//             auto json = CALL_FIELD_FOR_SYMBOLS(std::string, type, json);
-//             lua_pushstring(L, json.c_str());
-//             lua_setfield(L, -2, "type");
-//         } break;
-
-//         case ParseResultKind::Load: {
-//             auto data = std::get<declaration<std::string>>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             lua_pushstring(L, second(data).c_str());
-//             lua_setfield(L, -2, "source");
-//         } break;
-
-//         case ParseResultKind::Store: {
-//             auto data = std::get<storage>(second(node));
-
-//             lua_pushstring(L, data.identifier.c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             lua_pushstring(L, data.value.c_str());
-//             lua_setfield(L, -2, "value");
-//         } break;
-
-//         case ParseResultKind::Operation: {
-//             auto data = std::get<declaration<morgana_operation>>(second(node));
-
-//             lua_pushstring(L, first(data).c_str());
-//             lua_setfield(L, -2, "identifier");
-
-//             auto info = second(data);
-
-//             lua_pushstring(L, info.instruction.c_str());
-//             lua_setfield(L, -2, "instruction");
-
-//             lua_pushstring(L, info.lhs.c_str());
-//             lua_setfield(L, -2, "lhs");
-
-//             lua_pushstring(L, info.rhs.c_str());
-//             lua_setfield(L, -2, "rhs");
-//         } break;
-
-//         default: break;
-//     }
-// }
-
-// static int morgana_next(lua_State* L) {
-//     if(! current_iterator || current_iterator->ast.empty() ) {
-//         lua_pushnil(L);
-//         lua_pushstring(L, "No AST available or empty AST");
-
-//         if( iterators.size() > 0 ) {
-//             auto restored = iterators.top();
-//             iterators.pop();
-//             current_iterator = restored;
-//         }
-
-//         return 2;
-//     }
-
-//     if( current_iterator->current_index >= current_iterator->ast.size() ) {
-//         if (iterators.empty()) {
-//             lua_pushnil(L);
-//             lua_pushstring(L, "End of AST");
-//             return 2;
-//         }
-
-//         auto restored = iterators.top();
-//         iterators.pop();
-//         current_iterator = restored;
-
-//         if(! current_iterator || current_iterator->ast.empty() ) {
-//             lua_pushnil(L);
-//             lua_pushstring(L, "No AST after restoration");
-//             return 2;
-//         }
-
-//         if( current_iterator->current_index >= current_iterator->ast.size() ) {
-//             lua_pushnil(L);
-//             lua_pushstring(L, "Restored iterator also finished");
-//             return 2;
-//         }
-//     }
-
-//     auto node = current_iterator->ast.at(current_iterator->current_index);
-//     current_iterator->current_index++;
-
-//     push_ast_node_to_lua(L, node);
-//     return 1;
-// }
-
-// static int morgana_reset(lua_State* L) {
-//     lua_pushboolean(L, true);
-//     return 1;
-// }
-
-// static int morgana_require(lua_State* L) {
-//     const char* modname = luaL_checkstring(L, 1);
-
-//     lua_getfield(L, LUA_REGISTRYINDEX, "morgana_extensor_dir");
-//     const char* dir_cstr = lua_tostring(L, -1);
-//     std::string dir = dir_cstr ? dir_cstr : "./";
-//     lua_pop(L, 1);
-
-//     std::string module_file = find_lua_module(dir, modname);
-
-//     if( module_file.empty() ) {
-//         lua_pushnil(L);
-//         lua_pushfstring(L, "module '%s' not found in '%s'", modname, dir.c_str());
-//         return 2;
-//     }
-
-//     if( luaL_loadfile(L, module_file.c_str()) != LUA_OK ) return lua_error(L);
-
-//     lua_call(L, 0, 1);
-//     return 1;
-// }
