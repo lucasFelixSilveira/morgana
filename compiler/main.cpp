@@ -21,9 +21,11 @@
 CompilerParams params;
 
 #ifdef _WIN32
+std::string NIL_FD = " > NUL 2>&1 ";
 # include <direct.h>
 # define MKDIR(dir) _mkdir(dir)
 #else
+std::string NIL_FD = " > /dev/null 2>&1 ";
 # include <unistd.h>
 # define MKDIR(dir) mkdir(dir, 0700)
 #endif
@@ -64,9 +66,7 @@ main(int argc, char **argv)
     std::string generated = codegen(params, results);
 
     /* Create target directory if it doesn't exist */
-    struct stat st = {0};
-    std::string createFolder = "mkdir target > /dev/null 2>&1";
-    if( stat("target", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create target directory");
+    MKDIR((std::filesystem::current_path().string() + "/target").c_str());
 
     /* Write CPP to target/output.cpp */
     std::ofstream outFile("target/output.s");
@@ -81,13 +81,7 @@ main(int argc, char **argv)
 
     std::filesystem::path absPath = std::filesystem::absolute("target/output.s");
     std::filesystem::path absPathObj = std::filesystem::absolute("target/output.o");
-    std::filesystem::path absPathExe = std::filesystem::absolute(
-        #ifdef _WIN32
-            "target/output.exe"
-        #else
-            "target/output"
-        #endif
-    );
+    std::filesystem::path absPathExe = std::filesystem::absolute("target/output");
 
     /* calculate time of the **INTERNAL** compilation process */
     auto mid = std::chrono::high_resolution_clock::now();

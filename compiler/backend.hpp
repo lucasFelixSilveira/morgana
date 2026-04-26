@@ -10,6 +10,8 @@
 #include <sys/stat.h>
 #include <vector>
 
+#include "main.hpp"
+
 #include "compiler_outputs.hpp"
 #include "params.hpp"
 
@@ -62,19 +64,19 @@ struct Backend {
                  * 3. Use 'ld' to link the object files together into an executable.
                  */
                 if( sys.arch == "x86_64" && params.target == "x86_64-linux" ) {
-                    std::string as = "as \"" + s + "\" -o \"" + o + "\" > /dev/null 2>&1";
+                    std::string as = "as \"" + s + "\" -o \"" + o + "\"" + NIL_FD;
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
                     if( params.c_ffi ) {
-                        std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                        std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : NIL_FD);
                         if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI to object file using gcc");
 
-                        std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+                        std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : NIL_FD);
                         if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link C FFI to Morgana IR object file using ld");
                         return;
                     }
 
-                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\" > /dev/null 2>&1";
+                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\"" + NIL_FD;
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
                     return;
                 };
@@ -90,10 +92,10 @@ struct Backend {
                     bool mingw = CAND("x86_64-w64-mingw32-gcc", CAND("x86_64-w64-mingw32-as", CAND("x86_64-w64-mingw32-objcopy", end)));
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "https://www.mingw-w64.org/downloads/");
 
-                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
-                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert object file");
 
                     std::string libpath = "/usr/x86_64-w64-mingw32/lib";
@@ -112,7 +114,7 @@ struct Backend {
                     std::string link_flags = "-L\"" + libpath + "\" -lmsvcrt -lkernel32 -lmingw32 -lmingwex -Wl,--image-base,0x140000000";
 
                     if( params.c_ffi ) {
-                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : " > /dev/null 2>&1");
+                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);
                         if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
 
                         std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + ".ffi\" \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,windows -Wl,--entry,WinMain";
