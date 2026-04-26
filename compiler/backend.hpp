@@ -125,12 +125,16 @@ struct Backend {
                 if( sys.arch == "x86_64" && params.target == "x86_64-windows" ) {
                     bool mingw =
                         CAND(x86_64-w64-mingw32-gcc,
-                        CAND(x86_64-w64-mingw32-as, end));
+                        CAND(x86_64-w64-mingw32-as,
+                        CAND(x86_64-w64-mingw32-objcopy, end)));
 
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "https://www.mingw-w64.org/downloads/");
 
                     std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
+
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert COFF to ELF");
 
                     std::string libpath = "/usr/x86_64-w64-mingw32/lib";
                     FILE* find = popen("find /usr -name \"libmsvcrt.a\" 2>/dev/null | grep \"x86_64-w64-mingw32\" | head -1", "r");
@@ -168,7 +172,8 @@ struct Backend {
 
                     bool mingw =
                         CAND(gcc,
-                        CAND(x86_64-w64-mingw32-as, end));
+                        CAND(x86_64-w64-mingw32-as,
+                        CAND(x86_64-w64-mingw32-objcopy, end)));
 
                     if (!mingw)
                         CompilerOutputs::Fatal(
@@ -177,8 +182,11 @@ struct Backend {
                             "https://www.mingw-w64.org/downloads/"
                         );
 
-                    std::string as = "x86_64-w64-mingw32-as -c \"" + s + "\" -o \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    std::string as = "x86_64-w64-mingw32-as -c \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
+
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert COFF");
 
                     if( params.c_ffi ) {
                         std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);

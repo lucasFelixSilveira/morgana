@@ -1,9 +1,7 @@
 .text
 .globl WinMain
 WinMain:
-	subq $32, %rsp
 	call main
-	addq $32, %rsp
 	ret
 	
 .text
