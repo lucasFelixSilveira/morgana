@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <vector>
 #include <string>
 
@@ -15,7 +16,7 @@ static bool isRepositoryURL(const std::string& input) {
     return false;
 }
 std::vector<std::string> extractRepositoryURLs(const std::string& workspace) {
-    TOMLReader reader("morgana", "target.toml");
+    TOMLReader reader("morgana", std::filesystem::relative("target.toml").string());
     TOMLReader::Values data = reader.get({"extensors", "repositories"});
 
     if( std::holds_alternative<TOMLReader::Error>(data) ) {
