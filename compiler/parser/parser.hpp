@@ -9,10 +9,10 @@
 #include "statements.hpp"
 #include "storage.hpp"
 #include "storage.hpp"
+#include "strings_internals.hpp"
 #include "symbols.hpp"
 #include "../compiler_outputs.hpp"
 #include "types/integer.hpp"
-#include "types/ptr.hpp"
 #include <cstdint>
 #include <iostream>
 #include <regex>
@@ -308,7 +308,8 @@ void puts(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     auto& top = strings_stack.top();
     if( top.find(value) == top.end() ) err();
 
-    result.push_back({ parse_kind::PUTS, puts_t(value, top.at(value).size()) });
+    std::string str = top.at(value);
+    result.push_back({ parse_kind::PUTS, puts_t(value, interpret_string(str) - 1) });
 }
 
 void constant(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
