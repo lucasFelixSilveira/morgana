@@ -131,10 +131,10 @@ struct Backend {
 
             case WINDOWS: {
                 if( sys.arch == "x86_64" && params.target == "x86_64-windows" ) {
-                    bool mingw = CAND("x86_64-w64-mingw32-gcc", CAND("x86_64-w64-mingw32wp-as", CAND("x86_64-w64-mingw32-objcopy", end)));
+                    bool mingw = CAND("x86_64-w64-mingw32-gcc", CAND("x86_64-w64-mingw32uwp-as", CAND("x86_64-w64-mingw32-objcopy", end)));
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find clang toolchain. Install it and try again." + breaker.str() + "https://github.com/llvm/llvm-project/releases/");
 
-                    std::string as = "x86_64-w64-mingw32wp-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
+                    std::string as = "x86_64-w64-mingw32uwp-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
                     std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
