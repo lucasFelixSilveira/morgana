@@ -118,7 +118,7 @@ struct Backend {
                 /* Cross-compilation for x86_64-windows using MinGW-w64 toolchain.
                  *
                  * 1. Use 'as' to assemble Morgana IR output to COFF object file.
-                 * 2. Use 'objcopy' to fix symbol underscores.
+                 * 2. Use 'objcopy' to fix symbols.
                  * 3. Use 'gcc' as linker driver to produce final executable.
                  * 4. If C FFI enabled, compile C source and link together.
                  */
@@ -171,9 +171,10 @@ struct Backend {
                 if (sys.arch == "x86_64" && params.target == "x86_64-windows") {
 
                     bool mingw =
-                        CAND(gcc,
+                        CAND(x86_64-w64-mingw32-gcc,
                         CAND(x86_64-w64-mingw32-as,
                         CAND(x86_64-w64-mingw32-objcopy, end)));
+                    if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "use: winget install -e --id MartinStorsjo.LLVM-MinGW.UCRT");
 
                     if (!mingw)
                         CompilerOutputs::Fatal(
