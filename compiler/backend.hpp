@@ -183,13 +183,6 @@ struct Backend {
                         CAND(x86_64-w64-mingw32-objcopy, end)));
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "use: winget install -e --id MartinStorsjo.LLVM-MinGW.UCRT");
 
-                    if (!mingw)
-                        CompilerOutputs::Fatal(
-                            "Failed to find MinGW-w64 toolchain.\n"
-                            "Install it and add to PATH:\n"
-                            "https://www.mingw-w64.org/downloads/"
-                        );
-
                     std::string as = "x86_64-w64-mingw32-as -c \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
