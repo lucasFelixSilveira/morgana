@@ -23,27 +23,23 @@
 
 inline bool __cmd_exists_win(const std::string& name) {
     DWORD size = GetEnvironmentVariableA("PATH", nullptr, 0);
-    if (size == 0) return false;
+    if( size == 0 ) return false;
 
     std::string path(size, '\0');
     GetEnvironmentVariableA("PATH", path.data(), size);
-
     size_t start = 0;
     while (true) {
         size_t end = path.find(';', start);
         std::string dir = path.substr(start, end - start);
 
-        // remove aspas
-        if (!dir.empty() && dir.front() == '"') dir.erase(0, 1);
-        if (!dir.empty() && dir.back() == '"') dir.pop_back();
+        if(! dir.empty() && dir.front() == '"' ) dir.erase(0, 1);
+        if(! dir.empty() && dir.back() == '"' ) dir.pop_back();
 
         std::string full = dir + "\\" + name + ".exe";
-
         DWORD attr = GetFileAttributesA(full.c_str());
-        if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY))
-            return true;
+        if( attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY) ) return true;
 
-        if (end == std::string::npos) break;
+        if( end == std::string::npos ) break;
         start = end + 1;
     }
 
@@ -60,15 +56,13 @@ inline bool __cmd_exists_win(const std::string& name) {
 
 inline bool __cmd_exists_unix(const std::string& name) {
     const char* path = std::getenv("PATH");
-    if (!path) return false;
+    if(! path ) return false;
 
     std::stringstream ss(path);
     std::string dir;
-
     while (std::getline(ss, dir, ':')) {
         std::string full = dir + "/" + name;
-        if (access(full.c_str(), X_OK) == 0)
-            return true;
+        if( access(full.c_str(), X_OK) == 0 ) return true;
     }
 
     return false;
@@ -176,7 +170,6 @@ struct Backend {
                  * 4. Use 'gcc' to link the object files together into an executable.
                  */
                 if (sys.arch == "x86_64" && params.target == "x86_64-windows") {
-
                     bool mingw =
                         CAND(x86_64-w64-mingw32-gcc,
                         CAND(x86_64-w64-mingw32-as,
