@@ -169,7 +169,7 @@ struct Backend {
                  * 3. Use 'gcc' to compile the C FFI source to an object file (if enabled).
                  * 4. Use 'gcc' to link the object files together into an executable.
                  */
-                if (sys.arch == "x86_64" && params.target == "x86_64-windows") {
+                if( sys.arch == "x86_64" && params.target == "x86_64-windows" ) {
                     bool mingw =
                         CAND(x86_64-w64-mingw32-gcc,
                         CAND(x86_64-w64-mingw32-as,
