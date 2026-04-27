@@ -52,9 +52,9 @@ inline SystemInfo detectSystemInfo() {
 #if defined(_WIN32)
     info.os = "Windows";
 #elif defined(__linux__) || defined(__ANDROID__)
-    info.os = "Linux";
+    info.os = "linux";
 #elif defined(__APPLE__)
-    info.os = "macOS";
+    info.os = "macos";
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64)

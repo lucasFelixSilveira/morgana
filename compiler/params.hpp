@@ -49,7 +49,7 @@ public:
         char *cwd  = argv[0];
         char *command = argv[1];
         char *main = (char*) "main.morg";
-        char *target = (char*) detectSystemInfo().arch.c_str();
+        char *target = (char*) (detectSystemInfo().arch + "-" + detectSystemInfo().os).c_str();
 
         bool optimized = false;
         bool verbose = false;
@@ -61,7 +61,7 @@ public:
 
         std::string programmer;
         std::string mcu;
-        std::string port = (os == "Linux" ? "/dev/ttyUSB0" : os == "Darwin" ? "/dev/tty.usbmodem1411" : "COM1");
+        std::string port = (os == "linux" ? "/dev/ttyUSB0" : os == "macos" ? "/dev/tty.usbmodem1411" : "COM1");
         hz frequency = -1;
 
         int i = 1;

@@ -81,7 +81,7 @@ struct Backend {
 
         auto const LINUX = 0, WINDOWS = 1, MACOS = 2;
         auto sys = detectSystemInfo();
-        auto checkout = sys.os == "Linux" ? LINUX : (sys.os == "Darwin" ? MACOS : WINDOWS);
+        auto checkout = sys.os == "linux" ? LINUX : (sys.os == "macos" ? MACOS : WINDOWS);
 
         switch (checkout) {
             case LINUX: {
