@@ -168,6 +168,13 @@ struct Backend {
             } break;
 
             case WINDOWS: {
+                /* Compile from x86_64-windows without cross-compilation.
+                 *
+                 * 1. Use 'as' to compile the Morgana IR assembly output to an object file.
+                 * 2. Use 'objcopy' to fix symbols.
+                 * 3. Use 'gcc' to compile the C FFI source to an object file (if enabled).
+                 * 4. Use 'gcc' to link the object files together into an executable.
+                 */
                 if (sys.arch == "x86_64" && params.target == "x86_64-windows") {
 
                     bool mingw =
