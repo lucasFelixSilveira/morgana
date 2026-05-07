@@ -3,7 +3,6 @@
 #include "params.hpp"
 #include "mocks.hpp"
 #include <chrono>
-#include <cstdlib>
 #include <filesystem>
 #include <iomanip>
 #include <sys/stat.h>
