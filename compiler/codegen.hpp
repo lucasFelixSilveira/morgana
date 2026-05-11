@@ -333,7 +333,12 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
             RunaValueFFI { runa_integer, RunaValueData { .integer = is_literal }});
 
             runa_push_field(runa, (char*) "value",
-            RunaValueFFI { runa_string, RunaValueData { .string = value.c_str() }});
+            RunaValueFFI { runa_string, RunaValueData {
+                .string =
+                    is_literal
+                    ? value.c_str()
+                    : std::to_string(symbols.lookup(value).stack_position).c_str()
+            }});
         } break;
 
         case parse_kind::PUTS: {

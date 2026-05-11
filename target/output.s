@@ -13,8 +13,8 @@ main:
 	pushq %rbp
 	movq %rsp, %rbp
 	movq $34, -4(%rbp)
-	movq -4(%rbp), %rax
-	movq %rax, -8(%rbp)
+	movq -4(%rbp), %rdi
+	jmp .LFE0
 .LFE0:
 	.size main, .LFE0 - main
 	movq %rdi, %rax
