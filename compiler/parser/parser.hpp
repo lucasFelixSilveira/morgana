@@ -15,6 +15,7 @@
 #include "types/integer.hpp"
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <regex>
 #include <stack>
 #include <string>
@@ -233,9 +234,10 @@ void load(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     std::string alloc = tokens.at(++i);
     STARTS_WITH check = starts_expr(alloc);
     if( check != STARTS_WITH::ST_IDENTIFIER ) err();
-
     if(! block::lookup(block::allocations, alloc) ) block::error(block::allocations, alloc);
 
+    declaration<std::string> data(identifier, alloc);
+    block::push_back(block::loads, data);
     result.push_back({ parse_kind::LOAD, declaration<std::string> { identifier, alloc } });
 }
 
@@ -256,6 +258,7 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
     std::string value = tokens.at(++i);
     check = starts_expr(value);
 
+    std::tuple<bool, std::optional<symbol>> data_load(false, std::optional<symbol>());
     switch(check) {
         case STARTS_WITH::ST_NUMBER: {} break;
         case STARTS_WITH::ST_IDENTIFIER: {
@@ -267,12 +270,20 @@ void store(MORGANA_STATEMENT_FUNCTION_ARGUMENTS) {
                 }
                 break;
             }
+
+            if( block::lookup(block::loads, value) ) {
+                auto [_, content] = block::peek(block::loads, value);
+                auto [__, symbol] = block::peek(block::allocations, content);
+                data_load = std::make_tuple(true, symbol);
+                break;
+            }
         } break;
         default: err(1);
     }
 
     auto [_, symbol] = block::peek(block::allocations, expr);
-    if( std::holds_alternative<morgana_integer>(symbol) ) {
+    if( first(data_load) && is_compatible(symbol, second(data_load).value()) ) {}
+    else if( std::holds_alternative<morgana_integer>(symbol) ) {
         auto int_t = std::get<morgana_integer>(symbol);
         if(! int_t.check(value) ) err(1);
     }

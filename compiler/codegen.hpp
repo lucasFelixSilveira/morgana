@@ -368,7 +368,7 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
 
             SPOS dest = symbols.lookup(store.identifier);
 
-            add_field();
+            add_fields(3);
             runa_push_field(runa, (char*) "dest",
             RunaValueFFI { runa_integer, RunaValueData { .integer = (size_t) dest.stack_position }});
 
@@ -377,13 +377,45 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
                 if( name == store.value ) constant_string = true;
             }
 
+            runa_push_field(runa, (char*) "typeof",
+            RunaValueFFI { runa_integer, RunaValueData {
+                .integer = (size_t) (
+                    constant_string
+                    ? 100
+                    : is_number(store.value)
+                    ? 200
+                    : is_identifier(store.value)
+                    ? 300
+                    : 000
+                )
+            }});
+
+            auto src_value = RunaValueFFI{};
             if( constant_string ) {
                 std::string identifier = ".fn" + std::to_string(function_id) + "." + store.value;
-                add_field();
-                runa_push_field(runa, (char*) "src",
-                RunaValueFFI { runa_string, RunaValueData { .string = identifier.c_str() } } );
+                src_value =  RunaValueFFI {
+                    runa_string,
+                    RunaValueData { .string = identifier.c_str() }
+                };
                 break;
             }
+
+            if( is_number(store.value) ) {
+                src_value = RunaValueFFI {
+                    runa_integer,
+                    RunaValueData { .integer = std::stoull(store.value) }
+                };
+            }
+
+            if( is_identifier(store.value) ) {
+                auto addr = symbols.lookup(store.value).stack_position;
+                src_value = RunaValueFFI {
+                    runa_integer,
+                    RunaValueData { .integer = (size_t) addr }
+                };
+            }
+
+            runa_push_field(runa, (char*) "src", src_value);
         } break;
 
         case parse_kind::LOAD: {

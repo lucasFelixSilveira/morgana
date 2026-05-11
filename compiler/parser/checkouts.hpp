@@ -21,3 +21,6 @@ STARTS_WITH starts_expr(std::string token) {
 
     return std::regex_match(token, std::regex("^[a-zA-Z_][a-zA-Z0-9_]*$")) ? ST_IDENTIFIER : ST_UNKOWN;
 }
+
+bool is_compatible(symbol sym1, symbol sym2)
+{ return sym1.index() == sym2.index(); }

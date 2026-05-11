@@ -1,8 +1,10 @@
 .text
-.globl WinMain
-WinMain:
+.globl _start
+_start:
 	call main
-	ret
+	movq %rax, %rdi
+	movq $60, %rax
+	syscall
 	
 .text
 .globl main
@@ -10,11 +12,12 @@ main:
 .LFP0:
 	pushq %rbp
 	movq %rsp, %rbp
-	subq $32, %rsp
-	lea .fn0.text(%rip), %rcx
-	call printf
+	movq $34, -4(%rbp)
+	movq -4(%rbp), %rax
+	movq %rax, -8(%rbp)
 .LFE0:
+	.size main, .LFE0 - main
+	movq %rdi, %rax
 	leave
 	ret
 .data
-	.fn0.text: .asciz "Hello, World!"

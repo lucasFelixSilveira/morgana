@@ -1,6 +1,9 @@
 comptime _start
 
 void main() {
-    text = constant "Hello, World!"
-    puts text
+_0 = alloc i32
+_1 = alloc i32
+store _0 34
+x = load _0
+store _1 x
 }
