@@ -29,7 +29,7 @@
 #include <vector>
 
 extern "C" {
-#include "libs/linux/include/runa.h"
+#include "libs/runa.h"
 }
 
 bool is_number(std::string &str)

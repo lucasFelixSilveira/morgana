@@ -4,7 +4,7 @@
 #include <string>
 
 extern "C" {
-    #include "libs/linux/include/runa.h"
+    #include "libs/runa.h"
 }
 
 int amount;

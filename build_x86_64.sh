@@ -2,7 +2,7 @@
 
 cd compiler
 
-g++ -std=c++17 -g -O0 -fPIC -fpermissive -fexceptions -llzma -lm main.cpp libs/linux/x86_64/libruna.a \
+g++ -std=c++17 -g -O0 -fPIC -fpermissive -fexceptions -llzma -lm main.cpp libs/linux/x86_64/libruna.a libs/linux/x86_64/libeva.a \
     -o ../bin/morgana \
     -I. \
     -lstdc++
