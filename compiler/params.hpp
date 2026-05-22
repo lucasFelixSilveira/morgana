@@ -3,6 +3,7 @@
 
 #include "sys.hpp"
 #include <cstring>
+#include <iostream>
 #include <string>
 
 #define MHz(x) ((x) * 1000000)
@@ -63,6 +64,8 @@ public:
         std::string mcu;
         std::string port = (os == "linux" ? "/dev/ttyUSB0" : os == "macos" ? "/dev/tty.usbmodem1411" : "COM1");
         hz frequency = -1;
+
+        std::cout << " default target: " << target << std::endl;
 
         int i = 1;
         for(; i < argc; i++ ) {
