@@ -1,9 +1,5 @@
 comptime _start
 
 void main() {
-_0 = alloc i32
-_1 = alloc i32
-store _0 34
-x = load _0
-ret x
+
 }

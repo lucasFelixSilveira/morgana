@@ -95,15 +95,6 @@ struct Backend {
                     std::string as = "as \"" + s + "\" -o \"" + o + "\"" + NIL_FD;
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
-                    if( params.c_ffi ) {
-                        std::string gcc = "gcc -nostartfiles -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + std::string(params.verbose ? "" : NIL_FD);
-                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI to object file using gcc");
-
-                        std::string ld = "ld \"" + o + "\" \"" + o + ".ffi\" -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o \"" + exe + "\"" + std::string(params.verbose ? "" : NIL_FD);
-                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link C FFI to Morgana IR object file using ld");
-                        return;
-                    }
-
                     std::string ld = "ld \"" + o + "\" -o \"" + exe + "\"" + NIL_FD;
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
                     return;
@@ -145,16 +136,6 @@ struct Backend {
 
                     std::string link_flags = "-L\"" + libpath + "\" -lmsvcrt -lkernel32 -lmingw32 -lmingwex -Wl,--image-base,0x140000000";
 
-                    if( params.c_ffi ) {
-                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);
-                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
-
-                        std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + ".ffi\" \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,windows -Wl,--entry,main";
-                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
-
-                        return;
-                    }
-
                     std::string ld = "x86_64-w64-mingw32-gcc -m64 \"" + o + "\" -o \"" + exe + "\" " + link_flags + " -Wl,--subsystem,console -Wl,--entry,main";
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
                     return;
@@ -182,15 +163,6 @@ struct Backend {
                     std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
                     if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert COFF");
 
-                    if( params.c_ffi ) {
-                        std::string gcc = "x86_64-w64-mingw32-gcc -m64 -c \"" + params.ffi_path + "\" -o \"" + o + ".ffi\"" + (params.verbose ? "" : NIL_FD);
-                        if( std::system(gcc.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile C FFI");
-
-                        std::string ld = "x86_64-w64-mingw32-gcc -nostartfiles -m64 \"" + o + ".ffi\" \"" + o + " \" -o \"" + exe + "\" -mconsole -Wl,--subsystem,console -Wl,--entry,main";
-                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
-                        return;
-                    }
-
                     std::string ld = "x86_64-w64-mingw32-gcc -nostartfiles -m64 \"" + o + "\" -o \"" + exe + "\" -mconsole -Wl,--subsystem,console -Wl,--entry,main";
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link executable");
 
@@ -199,79 +171,79 @@ struct Backend {
             } break;
         }
 
-        if( params.target == "xtensa" ) {
-            bool xtensa = CAND("idf.py", end);
-            if(! xtensa ) CompilerOutputs::Fatal("Failed to find xtensa toolchain (idf.py). Install it and try again." + breaker.str() + " https://docs.espressif.com/projects/esp-idf/");
+        // if( params.target == "xtensa" ) {
+        //     bool xtensa = CAND("idf.py", end);
+        //     if(! xtensa ) CompilerOutputs::Fatal("Failed to find xtensa toolchain (idf.py). Install it and try again." + breaker.str() + " https://docs.espressif.com/projects/esp-idf/");
 
-            std::filesystem::path absPath = std::filesystem::absolute("target/xtensa");
+        //     std::filesystem::path absPath = std::filesystem::absolute("target/xtensa");
 
-            struct stat st = {0};
-            std::string createFolder = "mkdir target/xtensa > /dev/null 2>&1";
-            if( stat("target/xtensa", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa directory");
+        //     struct stat st = {0};
+        //     std::string createFolder = "mkdir target/xtensa > /dev/null 2>&1";
+        //     if( stat("target/xtensa", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa directory");
 
-            // make root configs
-            std::stringstream ss;
-            ss << "cmake_minimum_required(VERSION 3.16)\n"
-               << "include($ENV{IDF_PATH}/tools/cmake/project.cmake)\n"
-               << "project(" << params.name << ")";
+        //     // make root configs
+        //     std::stringstream ss;
+        //     ss << "cmake_minimum_required(VERSION 3.16)\n"
+        //        << "include($ENV{IDF_PATH}/tools/cmake/project.cmake)\n"
+        //        << "project(" << params.name << ")";
 
-            std::FILE* file = std::fopen("target/xtensa/CMakeLists.txt", "w+");
-            if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
-            std::fprintf(file, "%s\n", ss.str().c_str());
-            std::fclose(file);
+        //     std::FILE* file = std::fopen("target/xtensa/CMakeLists.txt", "w+");
+        //     if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
+        //     std::fprintf(file, "%s\n", ss.str().c_str());
+        //     std::fclose(file);
 
-            ss.str("");
-            ss.clear();
+        //     ss.str("");
+        //     ss.clear();
 
-            // make main folder configs
-            createFolder = "mkdir target/xtensa/main > /dev/null 2>&1";
-            if( stat("target/xtensa/main", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa main package");
+        //     // make main folder configs
+        //     createFolder = "mkdir target/xtensa/main > /dev/null 2>&1";
+        //     if( stat("target/xtensa/main", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa main package");
 
-            file = std::fopen("target/xtensa/main/CMakeLists.txt", "w+");
-            if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
-            std::fprintf(file, "idf_component_register( SRCS \"m.S\" )");
-            std::fclose(file);
+        //     file = std::fopen("target/xtensa/main/CMakeLists.txt", "w+");
+        //     if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
+        //     std::fprintf(file, "idf_component_register( SRCS \"m.S\" )");
+        //     std::fclose(file);
 
-            // Copy output.s to main folder
-            std::ifstream output(s, std::ios::binary | std::ios::ate);
-            std::streamsize size = output.tellg();
-            output.seekg(0, std::ios::beg);
-            std::vector<char> src(size);
-            if(! output.read(src.data(), size) ) CompilerOutputs::Fatal("Failed to read output file");
+        //     // Copy output.s to main folder
+        //     std::ifstream output(s, std::ios::binary | std::ios::ate);
+        //     std::streamsize size = output.tellg();
+        //     output.seekg(0, std::ios::beg);
+        //     std::vector<char> src(size);
+        //     if(! output.read(src.data(), size) ) CompilerOutputs::Fatal("Failed to read output file");
 
-            file = std::fopen("target/xtensa/main/m.S", "w+"); // usage .S to pass before for the C pre-compiler
-            if(! file ) CompilerOutputs::Fatal("Failed to create m.S");
-            for( char c : src ) std::putc(c, file);
-            std::fclose(file);
+        //     file = std::fopen("target/xtensa/main/m.S", "w+"); // usage .S to pass before for the C pre-compiler
+        //     if(! file ) CompilerOutputs::Fatal("Failed to create m.S");
+        //     for( char c : src ) std::putc(c, file);
+        //     std::fclose(file);
 
-            // Build xtensa with idf.py
-            std::string build = "cd target/xtensa && idf.py build flash" + std::string(params.verbose ? "" : " > /dev/null 2>&1") + " && cd ../../";
-            if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build xtensa");
-            return;
-        }
+        //     // Build xtensa with idf.py
+        //     std::string build = "cd target/xtensa && idf.py build flash" + std::string(params.verbose ? "" : " > /dev/null 2>&1") + " && cd ../../";
+        //     if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build xtensa");
+        //     return;
+        // }
 
-        if( params.target == "avr" ) {
-            bool avr = CAND("avr-gcc", CAND("avr-objcopy", CAND("avrdude", CAND("avr-size", end))));
-            if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " https://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
+        // if( params.target == "avr" ) {
+        //     bool avr = CAND("avr-gcc", CAND("avr-objcopy", CAND("avrdude", CAND("avr-size", end))));
+        //     if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " https://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
 
-            std::string build = "avr-gcc -mmcu=" + params.mcu + " -Os -DF_CPU=" + std::to_string(params.frequency) + " -Os -c target/output.s -o target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-            if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build avr");
+        //     std::string build = "avr-gcc -mmcu=" + params.mcu + " -Os -DF_CPU=" + std::to_string(params.frequency) + " -Os -c target/output.s -o target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+        //     if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build avr");
 
-            std::string linking = "avr-gcc -mmcu=" + params.mcu + " -Os -o target/output target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-            if( std::system(linking.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link avr");
+        //     std::string linking = "avr-gcc -mmcu=" + params.mcu + " -Os -o target/output target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+        //     if( std::system(linking.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link avr");
 
-            std::string copy = "avr-objcopy -O ihex target/output target/output.hex" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-            if( std::system(copy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to copy avr");
+        //     std::string copy = "avr-objcopy -O ihex target/output target/output.hex" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+        //     if( std::system(copy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to copy avr");
 
-            if( params.verbose ) {
-                std::string verify = "avr-size --format=avr --mcu=" + params.mcu + " target/output";
-                if( std::system(verify.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to verify avr");
-            }
+        //     if( params.verbose ) {
+        //         std::string verify = "avr-size --format=avr --mcu=" + params.mcu + " target/output";
+        //         if( std::system(verify.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to verify avr");
+        //     }
 
-            std::string flash = "avrdude -c " + params.programmer + " -p " + params.mcu + " -P " + params.port + " -b 115200 -U flash:w:target/output.hex:i" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-            if( std::system(flash.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to flash avr");
-            return;
-        }
+        //     std::string flash = "avrdude -c " + params.programmer + " -p " + params.mcu + " -P " + params.port + " -b 115200 -U flash:w:target/output.hex:i" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
+        //     if( std::system(flash.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to flash avr");
+        //     return;
+        // }
 
     }
 };
