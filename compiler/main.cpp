@@ -41,6 +41,8 @@ main(int argc, char **argv)
     if( params.command == "install" ) ExtensorManager::install(argv);
     if( params.command != "build" ) return 0;
 
+    std::cout << " default target: " << params.target << std::endl;
+
     /* checks if the file is accessible */
     std::ifstream file(params.main, std::ios::binary);
     if(! file.is_open() ) CompilerOutputs::Fatal("Your main file is not valid. Try use -m to define the newest file");

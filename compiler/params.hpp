@@ -65,8 +65,6 @@ public:
         std::string port = (os == "linux" ? "/dev/ttyUSB0" : os == "macos" ? "/dev/tty.usbmodem1411" : "COM1");
         hz frequency = -1;
 
-        std::cout << " default target: " << target << std::endl;
-
         int i = 1;
         for(; i < argc; i++ ) {
             char *arg = argv[i];
