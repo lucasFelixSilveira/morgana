@@ -31,7 +31,7 @@ public:
         int output_format = 0;
         bool verbose = false;
 
-        std::string eva_path = std::filesystem::current_path() / "target.eva";
+        std::string eva_path = (std::filesystem::current_path() / "target.eva").string();
         if( std::filesystem::exists(eva_path) ) {
             eva driver(eva_path);
             try {
