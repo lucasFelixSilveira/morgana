@@ -142,4 +142,4 @@ $ morgana build -o x86_64-optimized
     <tr>
 </table>
 
-- [See documentation here](./docs.md)
+- [See documentation here](https://morgana-lang.vercel.app/docs)
