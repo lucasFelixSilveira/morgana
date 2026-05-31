@@ -9,7 +9,7 @@ g++ -std=c++17 -g -O0 -fPIC -fpermissive -fexceptions -llzma -lm main.cpp \
     -lstdc++ \
     -Wl,-rpath,'$ORIGIN'
 
-cp libs/linux/x86_64/libeva.so ../bin/
-cp libs/linux/x86_64/libruna.so ../bin/
+cp libs/x86_64-linux/libeva.so ../bin/
+cp libs/x86_64-linux/libruna.so ../bin/
 
 cd ..

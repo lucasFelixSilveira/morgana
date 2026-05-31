@@ -1,26 +1,19 @@
 #pragma once
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
-#include <ios>
-#include <iostream>
 #include <sstream>
 #include <string>
-#include <filesystem>
 #include <sys/stat.h>
-#include <vector>
-
-#include "main.hpp"
 
 #include "compiler_outputs.hpp"
 #include "params.hpp"
 
-// Versão melhorada - mais segura e eficiente
 #ifdef _WIN32
 #include <windows.h>
 #include <string>
-#include <vector>
+std::string NIL_FD_BACKEND = " > NUL 2>&1 ";
 
+#define CAND(x, y) (__cmd_exists_win(#x) && (y))
 inline bool __cmd_exists_win(const std::string& name) {
     DWORD size = GetEnvironmentVariableA("PATH", nullptr, 0);
     if( size == 0 ) return false;
@@ -46,14 +39,14 @@ inline bool __cmd_exists_win(const std::string& name) {
     return false;
 }
 
-#define CAND(x, y) (__cmd_exists_win(#x) && (y))
 
 #else
 #include <unistd.h>
 #include <cstdlib>
 #include <sstream>
 #include <string>
-
+std::string NIL_FD_BACKEND = " > /dev/null 2>&1 ";
+#define CAND(x, y) (__cmd_exists_unix(#x) && (y))
 inline bool __cmd_exists_unix(const std::string& name) {
     const char* path = std::getenv("PATH");
     if(! path ) return false;
@@ -67,9 +60,6 @@ inline bool __cmd_exists_unix(const std::string& name) {
 
     return false;
 }
-
-#define CAND(x, y) (__cmd_exists_unix(#x) && (y))
-
 #endif
 
 const bool end = true;
@@ -92,10 +82,10 @@ struct Backend {
                  * 3. Use 'ld' to link the object files together into an executable.
                  */
                 if( sys.arch == "x86_64" && params.target == "x86_64-linux" ) {
-                    std::string as = "as \"" + s + "\" -o \"" + o + "\"" + NIL_FD;
+                    std::string as = "as \"" + s + "\" -o \"" + o + "\"" + NIL_FD_BACKEND;
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
-                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\"" + NIL_FD;
+                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\"" + NIL_FD_BACKEND;
                     if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
                     return;
                 };
@@ -115,10 +105,10 @@ struct Backend {
 
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "https://www.mingw-w64.org/downloads/");
 
-                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
+                    std::string as = "x86_64-w64-mingw32-as --64 \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD_BACKEND);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
-                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD_BACKEND);
                     if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert COFF to ELF");
 
                     std::string libpath = "/usr/x86_64-w64-mingw32/lib";
@@ -157,10 +147,10 @@ struct Backend {
                         CAND(x86_64-w64-mingw32-objcopy, end)));
                     if(! mingw ) CompilerOutputs::Fatal("Failed to find Mingw-w64 toolchain. Install it and try again." + breaker.str() + "use: winget install -e --id MartinStorsjo.LLVM-MinGW.UCRT");
 
-                    std::string as = "x86_64-w64-mingw32-as -c \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD);
+                    std::string as = "x86_64-w64-mingw32-as -c \"" + s + "\" -o \"" + o + ".old\"" + (params.verbose ? "" : NIL_FD_BACKEND);
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to assemble to COFF");
 
-                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD);
+                    std::string objcopy = "x86_64-w64-mingw32-objcopy \"" + o + ".old\" \"" + o + "\"" + (params.verbose ? "" : NIL_FD_BACKEND);
                     if( std::system(objcopy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to convert COFF");
 
                     std::string ld = "x86_64-w64-mingw32-gcc -nostartfiles -m64 \"" + o + "\" -o \"" + exe + "\" -mconsole -Wl,--subsystem,console -Wl,--entry,main";

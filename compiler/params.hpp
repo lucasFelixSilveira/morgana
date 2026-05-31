@@ -11,6 +11,8 @@
 
 struct CompilerParams {
 public:
+    char **argv;
+
     using hz = unsigned long long int;
     std::string cwd;
     std::string command;
@@ -67,6 +69,7 @@ public:
         params.command = command;
         params.target = target;
         params.main = main;
+        params.argv = argv;
 
         return params;
     }
