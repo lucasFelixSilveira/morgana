@@ -43,7 +43,7 @@ struct Commands {
     }
 
     static bool version(CompilerParams& params) {
-        std::cout << "carla version " << MORGANA_VERSION << " (" << MORGANA_PS << ")\n";
+        std::cout << "morgana version " << MORGANA_VERSION << " (" << MORGANA_PS << ")\n";
         return 0;
     }
 
