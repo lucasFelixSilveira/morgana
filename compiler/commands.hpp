@@ -89,7 +89,7 @@ bool Commands::build(CompilerParams& params) {
     std::string generated = codegen(params, results);
 
     /* Create target directory if it doesn't exist */
-    auto target = std::filesystem::current_path() / "/target";
+    auto target = std::filesystem::current_path() / "target";
     if(! std::filesystem::exists(target) ) std::filesystem::create_directory(target);
 
     /* Write CPP to target/output.cpp */

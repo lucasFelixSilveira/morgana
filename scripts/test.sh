@@ -1,2 +1,2 @@
-cd test
-../bin/morgana install x86_64-linux
+cd morgana-env
+../bin/morgana build -m main.morg
