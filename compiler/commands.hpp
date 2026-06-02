@@ -90,7 +90,7 @@ bool Commands::build(CompilerParams& params) {
 
     /* Create target directory if it doesn't exist */
     auto target = std::filesystem::current_path() / "/target";
-    std::filesystem::create_directory(target);
+    if(! std::filesystem::exists(target) ) std::filesystem::create_directory(target);
 
     /* Write CPP to target/output.cpp */
     std::ofstream outFile("target/output.s");
