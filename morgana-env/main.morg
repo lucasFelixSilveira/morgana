@@ -1,5 +1,7 @@
 comptime _start
 
 void main() {
-
+_0 = alloc ptr
+_1 = constant "Hello, world\n"
+store _0 _1
 }

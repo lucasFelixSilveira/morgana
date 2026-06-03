@@ -402,6 +402,8 @@ void table(Symbols& symbols, Runa *runa, ParseResult& node) {
                     runa_string,
                     RunaValueData { .string = identifier.c_str() }
                 };
+
+                runa_push_field(runa, (char*) "src", src_value);
                 break;
             }
 
