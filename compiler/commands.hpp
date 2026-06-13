@@ -123,7 +123,11 @@ bool Commands::build(CompilerParams& params) {
               << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " (not compiled yet)" << Colorizer::RESET ;
 
     /* Compile Morgana Assembly to object file using the right assemler silently */
-    Backend::assemble(params, absPath.string(), absPathObj.string(), absPathExe.string());
+    std::string suffix;
+    Backend::assemble(params, absPath.string(), absPathObj.string(), absPathExe.string(), &suffix);
+
+    /* Suffix adapter */
+    if( suffix.empty() ) suffix = "no suffix";
 
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -140,7 +144,7 @@ bool Commands::build(CompilerParams& params) {
     CompilerOutputs::Log(duration.str());
     std::cout << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET << "Object emitted "
               << Colorizer::DARK_GREY << "|" << Colorizer::BOLD_YELLOW << " ./target/output "
-              << Colorizer::DARK_GREY << "(.exe)" << Colorizer::RESET << std::endl;
+              << Colorizer::DARK_GREY << "(" << suffix << ")" << Colorizer::RESET << std::endl;
 
     return true;
 }

@@ -1,12 +1,18 @@
 #pragma once
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
 
 #include "compiler_outputs.hpp"
 #include "params.hpp"
+
+#define SSWITCH(val) auto _v = (val); do {
+#define SIS(val) } while(0); if( _v == (val) ) { do {
+#define SDEFAULT() } while(0); do {
+#define SEND } while(0);
 
 #ifdef _WIN32
 #include <windows.h>
@@ -65,7 +71,7 @@ inline bool __cmd_exists_unix(const std::string& name) {
 const bool end = true;
 
 struct Backend {
-    static void assemble(CompilerParams& params, std::string s, std::string o, std::string exe) {
+    static void assemble(CompilerParams& params, std::string s, std::string o, std::string exe, std::string *suffix) {
         std::stringstream breaker;
         breaker << "\n" << Colorizer::DARK_GREY << "└─ " << Colorizer::RESET;
 
@@ -73,21 +79,42 @@ struct Backend {
         auto sys = detectSystemInfo();
         auto checkout = sys.os == "linux" ? LINUX : (sys.os == "macos" ? MACOS : WINDOWS);
 
+        #define DEFINE_SUFFIXES(x, y, z)                           \
+        std::function<std::string()> func = [&]() -> std::string { \
+            if( params.output == "native-bin" )     return x;      \
+            if( params.output == "shared-object" )  return y;      \
+            if( params.output == "static-archive" ) return z;      \
+            return x;                                              \
+        };                                                         \
+        *suffix += func();                                         \
+        exe += *suffix;
+
         switch (checkout) {
             case LINUX: {
+                DEFINE_SUFFIXES(std::string(), ".so", ".a");
+
                 /* Compile from x86_64-linux without cross-compilation.
                  *
                  * 1. Use 'as' to compile the Morgana IR assembly output to an object file.
                  * 2. Use 'gcc' to compile the C FFI source to an object file (if enabled).
-                 * 3. Use 'ld' to link the object files together into an executable.
+                 * 3. Use 'ld' or 'ar' to link the object files together into an executable,
+                 *    shared-object or a static-archive.
                  */
                 if( sys.arch == "x86_64" && params.target == "x86_64-linux" ) {
                     std::string as = "as \"" + s + "\" -o \"" + o + "\"" + NIL_FD_BACKEND;
                     if( std::system(as.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to compile Morgana IR to object file using as");
 
-                    std::string ld = "ld \"" + o + "\" -o \"" + exe + "\"" + NIL_FD_BACKEND;
-                    if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to object file using ld");
-                    return;
+                    if( params.output == "native-bin" || params.output == "shared-object" ) {
+                        std::string ld = "ld " + std::string(params.output == "native-bin" ? "" : "-shared ") + "\"" + o + "\" -o \"" + exe + "\"" + NIL_FD_BACKEND;
+                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to elf file using ld");
+                        return;
+                    }
+
+                    if( params.output == "static-archive" ) {
+                        std::string ld = "ar rcs \"" + exe + "\" \"" + o + "\"" + NIL_FD_BACKEND;
+                        if( std::system(ld.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link Morgana IR to static library file using ar");
+                        return;
+                    }
                 };
 
                 /* Cross-compilation for x86_64-windows using MinGW-w64 toolchain.
@@ -160,80 +187,5 @@ struct Backend {
                 }
             } break;
         }
-
-        // if( params.target == "xtensa" ) {
-        //     bool xtensa = CAND("idf.py", end);
-        //     if(! xtensa ) CompilerOutputs::Fatal("Failed to find xtensa toolchain (idf.py). Install it and try again." + breaker.str() + " https://docs.espressif.com/projects/esp-idf/");
-
-        //     std::filesystem::path absPath = std::filesystem::absolute("target/xtensa");
-
-        //     struct stat st = {0};
-        //     std::string createFolder = "mkdir target/xtensa > /dev/null 2>&1";
-        //     if( stat("target/xtensa", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa directory");
-
-        //     // make root configs
-        //     std::stringstream ss;
-        //     ss << "cmake_minimum_required(VERSION 3.16)\n"
-        //        << "include($ENV{IDF_PATH}/tools/cmake/project.cmake)\n"
-        //        << "project(" << params.name << ")";
-
-        //     std::FILE* file = std::fopen("target/xtensa/CMakeLists.txt", "w+");
-        //     if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
-        //     std::fprintf(file, "%s\n", ss.str().c_str());
-        //     std::fclose(file);
-
-        //     ss.str("");
-        //     ss.clear();
-
-        //     // make main folder configs
-        //     createFolder = "mkdir target/xtensa/main > /dev/null 2>&1";
-        //     if( stat("target/xtensa/main", &st) == -1 && std::system(createFolder.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to create xtensa main package");
-
-        //     file = std::fopen("target/xtensa/main/CMakeLists.txt", "w+");
-        //     if(! file ) CompilerOutputs::Fatal("Failed to create CMakeLists.txt");
-        //     std::fprintf(file, "idf_component_register( SRCS \"m.S\" )");
-        //     std::fclose(file);
-
-        //     // Copy output.s to main folder
-        //     std::ifstream output(s, std::ios::binary | std::ios::ate);
-        //     std::streamsize size = output.tellg();
-        //     output.seekg(0, std::ios::beg);
-        //     std::vector<char> src(size);
-        //     if(! output.read(src.data(), size) ) CompilerOutputs::Fatal("Failed to read output file");
-
-        //     file = std::fopen("target/xtensa/main/m.S", "w+"); // usage .S to pass before for the C pre-compiler
-        //     if(! file ) CompilerOutputs::Fatal("Failed to create m.S");
-        //     for( char c : src ) std::putc(c, file);
-        //     std::fclose(file);
-
-        //     // Build xtensa with idf.py
-        //     std::string build = "cd target/xtensa && idf.py build flash" + std::string(params.verbose ? "" : " > /dev/null 2>&1") + " && cd ../../";
-        //     if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build xtensa");
-        //     return;
-        // }
-
-        // if( params.target == "avr" ) {
-        //     bool avr = CAND("avr-gcc", CAND("avr-objcopy", CAND("avrdude", CAND("avr-size", end))));
-        //     if(! avr ) CompilerOutputs::Fatal("Failed to find avr toolchain. Install it and try again." + breaker.str() + " https://www.microchip.com/en-us/tools-resources/develop/microchip-studio/gcc-compilers");
-
-        //     std::string build = "avr-gcc -mmcu=" + params.mcu + " -Os -DF_CPU=" + std::to_string(params.frequency) + " -Os -c target/output.s -o target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-        //     if( std::system(build.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to build avr");
-
-        //     std::string linking = "avr-gcc -mmcu=" + params.mcu + " -Os -o target/output target/output.o" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-        //     if( std::system(linking.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to link avr");
-
-        //     std::string copy = "avr-objcopy -O ihex target/output target/output.hex" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-        //     if( std::system(copy.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to copy avr");
-
-        //     if( params.verbose ) {
-        //         std::string verify = "avr-size --format=avr --mcu=" + params.mcu + " target/output";
-        //         if( std::system(verify.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to verify avr");
-        //     }
-
-        //     std::string flash = "avrdude -c " + params.programmer + " -p " + params.mcu + " -P " + params.port + " -b 115200 -U flash:w:target/output.hex:i" + std::string(params.verbose ? "" : " > /dev/null 2>&1");
-        //     if( std::system(flash.c_str()) != 0 ) CompilerOutputs::Fatal("Failed to flash avr");
-        //     return;
-        // }
-
     }
 };

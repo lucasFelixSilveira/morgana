@@ -14,12 +14,7 @@ public:
     char **argv;
 
     using hz = unsigned long long int;
-    std::string cwd;
-    std::string command;
-    std::string main;
-    std::string name;
-    std::string target;
-
+    std::string cwd, command, main, name, target, output;
     bool verbose;
 
     CompilerParams() = default;
@@ -30,7 +25,7 @@ public:
         std::string main = "main.morg";
         std::string name = "project";
         std::string target = detectSystemInfo().arch + "-" + detectSystemInfo().os;
-        int output_format = 0;
+        std::string output = "";
         bool verbose = false;
 
         std::string eva_path = (std::filesystem::current_path() / "target.eva").string();
@@ -43,14 +38,10 @@ public:
                 auto o = driver.get<eva::map>("target", "output");
                 if( o.first ) {
                     auto f = o.second.operator[]<std::string>("format");
-                    if( f.first ) output_format = (
-                        f.second == "native-bin"
-                        ? 0
-                        : f.second == "shared-object"
-                        ? 1
-                        : f.second == "static-archive"
-                        ? 2
-                        : 0
+                    if( f.first ) output = (
+                        f.second == "native-bin" || f.second == "shared-object" || f.second == "static-archive"
+                        ? f.second
+                        : "native-bin"
                     );
                 }
             } catch(...) {}
@@ -67,6 +58,7 @@ public:
         CompilerParams params{};
 
         params.command = command;
+        params.output = output;
         params.target = target;
         params.main = main;
         params.argv = argv;
