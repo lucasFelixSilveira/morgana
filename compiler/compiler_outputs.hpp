@@ -59,7 +59,7 @@ CompilerOutputs::Fatal(std::string log)
 {
     ClearCurrentLine();
     std::cout << "\r" << Colorizer::BOLD_RED << "[Morgana FAIL]" << Colorizer::RESET << ": " << log << std::endl;
-    std::exit(-1);
+    std::exit(38);
 }
 
 
